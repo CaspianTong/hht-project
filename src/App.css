@@ -947,14 +947,17 @@
   font-size: 14px;
   font-weight: 800;
   /* 长按投票按钮本身（= 卡片里那枚按住 2 秒才计票的按钮）：
-     文字不可选中 + 不呼出系统菜单 —— 组件自带样式在 bottom2.css，
-     这里随 SongCard 皮肤再声明一道（含 -moz- / -ms- 前缀），
-     免得长按到达系统阈值时被放大镜 / 右键菜单截胡。 */
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
+     文字不可选中 + 不呼出系统菜单 + 不触发系统拖拽 —— 组件自带样式在 bottom2.css，
+     这里随 SongCard 皮肤再声明一道并加 !important：
+     iOS Safari / 微信内置浏览器会按内核默认值独立判定 <button> 内文字的可选中性，
+     不加显式加急时，长按达标那一刻放大镜与「拷贝 / 查询 / 分享」菜单仍会冒出来。
+     强度只落在选择与菜单上，按钮尺寸 / 配色 / 浪涌动画一律不动。 */
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
+  -webkit-user-drag: none !important;
   /* 静止态：与旧版一致的高级蓝光晕 + 内侧高光 */
   --hb-shadow: var(--glow-primary), inset 0 1px 0 rgba(255, 255, 255, 0.18);
   /* 推进态：白色浪涌 + 高级蓝蓄力光晕，在暖白底上层次最清楚 */

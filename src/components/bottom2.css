@@ -48,16 +48,20 @@
 
 /* ---------- 移动端长按手势加固（微信内置浏览器 · iOS / Android 触摸屏） ----------
    按钮本体的 touch-action: manipulation 已经在上面声明（消除双击缩放与 300ms 点击延迟），
-   这里再把「不可选中 / 不弹系统菜单」压到全部子元素上：
-   user-select 不会自动继承，只写在按钮上时长按文案仍可能被选中，
-   iOS 还会顺手弹出「拷贝 / 查询 / 分享」菜单 —— 那个菜单一弹出来，长按手势就被打断了。 */
+   这里把「不可选中 / 不弹系统菜单 / 不触发系统拖拽」压到按钮与全部子元素上：
+   ① user-select 不会自动继承，只写在按钮上时长按文案仍可能被选中；
+   ② iOS 长按文案会顺手弹出「拷贝 / 查询 / 分享」菜单，菜单一冒出来长按手势就被打断；
+   ③ 必须带 !important：本组件是「长按 2 秒 + 进度条」的强手势组件，
+      部分 iOS / 微信内置内核会用自己的默认值覆盖组件层声明（这正是上一版在个别手机上失效的原因），
+      加急后仍只影响选择与菜单，按钮尺寸 / 配色 / 浪涌动画一行都不变。 */
 .hold-button,
 .hold-button * {
-  user-select: none;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  -webkit-touch-callout: none;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
+  -webkit-user-drag: none !important;
 }
 
 .hold-button--sm {

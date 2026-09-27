@@ -236,28 +236,68 @@ label {
 /* 移动端长按手势加固（全局兜底 · 微信内置浏览器 / iOS / Android 触摸屏）：
    长按投票 / 长按提交这类「按住不放」的交互，最怕系统半路把手指抢走 ——
      · 选中文字：iOS 弹放大镜（Loupe）+ 选区，安卓拉起文字选择手柄；
-     · 系统快捷菜单：iOS 的「拷贝 / 查询 / 分享」、安卓长按弹出的菜单。
-   这两件事一发生，浏览器就会取消当前手势（按钮收到 pointercancel），
+     · 系统快捷菜单：iOS 的「拷贝 / 查询 / 分享」、安卓长按弹出的菜单；
+     · 系统拖拽：长按把内容整块拖走。
+   这几件事一发生，浏览器就会取消当前手势（按钮收到 pointercancel），
    自定义的那条 2 秒长按进度条会当场回弹 —— 用户眼里就是「按到一半突然断掉」。
-   user-select 不会自动继承，所以按钮 / 可交互卡片连同内部文字一起声明；
-   -webkit-touch-callout: none 专门关掉 iOS 长按呼出的快捷菜单。
-   输入框与文本域刻意排除在外：里面的文字必须还能正常选中与长按粘贴。 */
+
+   ⚠️ 为什么这一组必须带 !important（部分手机 —— 尤其 iOS —— 上一版没压住的原因）：
+     · WebKit 的 -webkit-user-select 历史上是「可继承」实现：只要还有任意一条
+       更高优先级的规则（第三方内核注入、系统阅读模式、翻译插件）把它改回 auto，
+       长按选区与放大镜就会复活；
+     · iOS Safari / 微信内置浏览器会按内核默认值单独判定 <button> 内文字节点的可选中性，
+       写在组件层（bottom2.css / App.css）的皮肤可能被内核样式盖掉。
+   强度只加在「不可选中 / 不弹菜单 / 不拖拽」三件事上，布局与配色一律不动。 */
+
+/* --- 组合拳第一层：所有按钮（含 role="button" 的卡片根节点）--- */
 button,
-label,
-[role='button'],
+[role='button'] {
+  -webkit-user-select: none !important; /* Safari / iOS */
+  -moz-user-select: none !important;    /* Firefox */
+  -ms-user-select: none !important;     /* IE / 旧 Edge */
+  user-select: none !important;         /* 标准属性 */
+  -webkit-touch-callout: none !important; /* iOS Safari：关掉长按呼出的系统菜单 */
+  -webkit-user-drag: none !important;     /* 禁用系统拖拽（长按把内容拖走） */
+  /* 放大镜 / 点按高亮属于系统默认手势反馈：本项目按钮已在各自皮肤里
+     单独声明 -webkit-tap-highlight-color: transparent，
+     这里刻意不在全局强推，避免误伤（确有需要再解注释）：
+     -webkit-tap-highlight-color: transparent !important; */
+}
+
+/* --- 组合拳第二层：参与长按 / 拖拽的组件与卡片（连内部文字一起压住）---
+   user-select 不会自动继承：只写在按钮上时，长按文案仍可能被选中 */
 .song-card,
 .song-card *,
 .hold-button,
 .hold-button *,
 .vote-btn,
 .flip-card,
+.flip-card *,
 .jelly-radio,
-.jelly-radio * {
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
+.jelly-radio *,
+label {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
+  -webkit-user-drag: none !important;
+}
+
+/* --- 组合拳第三层：保护性回填（这一层绝不能省）---
+   上面把 label / 卡片整棵子树都锁成「不可选中」，而输入框恰好就包在 <label> 里
+   （投稿表单的「歌曲名称 / 歌手」、兑换浮层的验证码输入）：
+   部分内核会把子输入框的选区一并锁死（光标进不去、长按不能粘贴）。
+   这里把文本可选中性与系统菜单显式还给表单控件，!important 稳压上面两层，
+   输入体验与改动前完全一致。 */
+input,
+textarea,
+[contenteditable] {
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
+  -webkit-touch-callout: default !important; /* 长按仍能弹出「粘贴 / 全选」菜单 */
 }
 
 a {
