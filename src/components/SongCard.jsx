@@ -110,6 +110,12 @@ export default function SongCard({ song, index = 0, votesLeft = 0, onVote }) {
         doneLabel="已投票"
         disabled={locked}
         onHold={handleVote}
+        /* 手机端长按 2 秒期间，部分安卓 / iOS 浏览器会在达到阈值时弹出默认右键或
+           快捷菜单（iOS 的「拷贝 / 查询 / 分享」、安卓的长按菜单）——
+           菜单一弹出来，长按手势就被系统抢走、进度条当场回弹。
+           这里连同 CSS 层的 user-select / touch-callout 一起，把它彻底摁住；
+           长按计时逻辑与浪涌动画一行不动。 */
+        onContextMenu={e => e.preventDefault()}
       >
         {idleLabel}
         {/* 屏幕上只有按钮文案，读屏时补上歌名，免得整页都是同一个「投 TA 一票」 */}

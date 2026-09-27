@@ -233,6 +233,33 @@ label {
   touch-action: manipulation;
 }
 
+/* 移动端长按手势加固（全局兜底 · 微信内置浏览器 / iOS / Android 触摸屏）：
+   长按投票 / 长按提交这类「按住不放」的交互，最怕系统半路把手指抢走 ——
+     · 选中文字：iOS 弹放大镜（Loupe）+ 选区，安卓拉起文字选择手柄；
+     · 系统快捷菜单：iOS 的「拷贝 / 查询 / 分享」、安卓长按弹出的菜单。
+   这两件事一发生，浏览器就会取消当前手势（按钮收到 pointercancel），
+   自定义的那条 2 秒长按进度条会当场回弹 —— 用户眼里就是「按到一半突然断掉」。
+   user-select 不会自动继承，所以按钮 / 可交互卡片连同内部文字一起声明；
+   -webkit-touch-callout: none 专门关掉 iOS 长按呼出的快捷菜单。
+   输入框与文本域刻意排除在外：里面的文字必须还能正常选中与长按粘贴。 */
+button,
+label,
+[role='button'],
+.song-card,
+.song-card *,
+.hold-button,
+.hold-button *,
+.vote-btn,
+.flip-card,
+.jelly-radio,
+.jelly-radio * {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
 a {
   color: inherit;
   text-decoration: none;

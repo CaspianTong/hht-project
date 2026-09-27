@@ -750,6 +750,17 @@
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
   backdrop-filter: blur(var(--glass-blur)) saturate(140%);
   box-shadow: var(--shadow-card);
+  /* 移动端长按手感：整条卡片（歌名 / 歌手 / 票数）都不允许被选中 ——
+     拇指按住「投 TA 一票」满 2 秒的过程中，iOS 会弹放大镜 +「拷贝 / 查询 / 分享」菜单、
+     安卓会拉起文字选择手柄；系统一接管这份手势，长按组件就会收到 pointercancel，
+     进度条当场回弹（用户眼里 = 按到一半突然断掉）。
+     user-select 不会自动继承，内部文字由紧随其后的 .song-card * 一并压住；
+     -webkit-touch-callout: none 专门关掉 iOS 长按呼出的快捷菜单。 */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
   /* 滑动叙事：进入视口前下沉半透明，进入后按 --reveal-delay 交错淡入 */
   opacity: 0;
   transform: translateY(var(--reveal-distance));
@@ -759,6 +770,17 @@
     translate 0.3s ease,
     border-color 0.3s ease,
     box-shadow 0.3s ease;
+}
+/* 卡片内所有文字（歌名 / 歌手 / 票数 / 按钮文案）一律不可选中、不呼出系统菜单：
+   长按投票时选到相邻文字、或弹出复制菜单，同样会打断那条 2 秒长按手势。
+   与 index.css 的全局兜底、bottom2.css 的按钮级声明是同一条策略的第三道保险。 */
+.song-card,
+.song-card * {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 /* 进入视口标记（由 useRevealGroup 添加）：两套选择器并列 ——
    data-revealed 是主锚点（不写在任何 props 里，React 重写 class 属性时冲不掉它），
@@ -924,6 +946,15 @@
   flex: 0 0 auto;
   font-size: 14px;
   font-weight: 800;
+  /* 长按投票按钮本身（= 卡片里那枚按住 2 秒才计票的按钮）：
+     文字不可选中 + 不呼出系统菜单 —— 组件自带样式在 bottom2.css，
+     这里随 SongCard 皮肤再声明一道（含 -moz- / -ms- 前缀），
+     免得长按到达系统阈值时被放大镜 / 右键菜单截胡。 */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
   /* 静止态：与旧版一致的高级蓝光晕 + 内侧高光 */
   --hb-shadow: var(--glow-primary), inset 0 1px 0 rgba(255, 255, 255, 0.18);
   /* 推进态：白色浪涌 + 高级蓝蓄力光晕，在暖白底上层次最清楚 */

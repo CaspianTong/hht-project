@@ -40,6 +40,10 @@ export default function HoldButton({
   disabled = false,
   onHold,
   onTap,
+  /* 可选：调用方自己的右键 / 长按菜单拦截（按住不放达到系统阈值时，
+     部分安卓 / iOS 浏览器会尝试弹出默认右键或快捷菜单）。组件内部始终 preventDefault，
+     这里只是再给调用方一个挂载点 —— 不传就跟以前完全一样。 */
+  onContextMenu,
   className = ''
 }) {
   const [phase, setPhase] = useState('idle');
@@ -333,7 +337,11 @@ export default function HoldButton({
       onTouchCancel={HAS_POINTER ? undefined : handleTouchCancel}
       onKeyDown={handleKeyDown}
       onKeyUp={handleKeyUp}
-      onContextMenu={e => e.preventDefault()}
+      onContextMenu={e => {
+        /* 长按期间绝不弹系统右键 / 快捷菜单：菜单一冒出来，这份长按手势就废了 */
+        e.preventDefault();
+        onContextMenu?.(e);
+      }}
     >
       <span className="hold-button__pulse" aria-hidden="true" />
       <span className="hold-button__label">{labels}</span>
