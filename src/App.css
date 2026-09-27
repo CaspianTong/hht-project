@@ -1081,7 +1081,8 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 2px;
+  /* 行距 4px（原 2px）：标签 12px 的小字与大号票数之间留出真正的空隙 */
+  gap: 4px;
   padding: 12px 15px 13px;
   border-radius: var(--radius);
   text-align: right;
@@ -1095,6 +1096,10 @@
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.02em;
+  line-height: 1.3;
+  /* 标签（🎫 剩余票数）与下方大号票数之间补一道固定外边距：
+     键盘弹出把版面压紧、或窄屏信息条折行时，标签不会再和大号数字粘在一起。 */
+  margin-bottom: 4px;
   color: var(--text-secondary);
 }
 .submit__votes-num {
@@ -1144,12 +1149,22 @@
   font-size: 13px;
   font-weight: 700;
   color: var(--text-secondary);
+  /* 表单标签（歌曲名称 / 歌手 / 乐队）与下方输入框之间：
+     .field 本身已有 8px gap，这里再补 4px —— 合计稳定的 12px，
+     标签绝不会和输入框（或上方票数条）挤成一条。 */
+  margin-bottom: 4px;
 }
 /* 投稿表单只剩「歌曲名称 / 歌手」两个文本输入，select / textarea 样式一并移除 */
 .field input {
   width: 100%;
   padding: 12px 14px;
   border-radius: 12px;
+  /* 输入框与下方内容（「提交并上架」长按按钮／另一个输入框）之间的固定间距。
+     .submit__form 是纵向 flex 容器，flex 里 margin 永不塌陷 ——
+     这个 24px 在任何屏宽、任何键盘弹出状态下都是恒定的 24px，
+     不像只靠父级 gap 那样会随折行 / 布局切换忽宽忽窄。
+     （与 .submit__form 的 16px gap 叠加后，输入框到「提交并上架」按钮实测 40px。） */
+  margin-bottom: 24px;
   border: 1px solid var(--border-subtle);
   background: var(--bg-inset);
   color: var(--text-main);
@@ -1799,7 +1814,10 @@
     flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
-    gap: 2px 12px;
+    /* 行距 8px（原 2px）：信息条在窄屏会折成 2~3 行，行距只有 2px 时折行处几乎贴在一起，
+       视觉上就像「歌手 / 乐队」这类文字与票数重叠了 */
+    gap: 8px 14px;
+    line-height: 1.45;
     margin-bottom: 18px;
     text-align: left;
   }
@@ -1890,6 +1908,33 @@
      输入框变整宽，拇指点选更准，窄屏下也不会被压成一条缝 */
   .form-row {
     grid-template-columns: 1fr;
+  }
+  /* ---------- 剩余票数仪表：卡片内 sticky（手机主场景） ----------
+     问题：键盘一弹，版面被顶上去，absolute 的仪表会脱离卡片流、跟输入框 / 长按按钮粘在一起。
+     做法（三个关键取舍）：
+     ① 用 sticky 而不是 fixed —— .submit__card 上有 backdrop-filter（毛玻璃），按规范它
+        会成为 fixed 后代的「包含块」，写 fixed 只会退化成贴着卡片，根本贴不到视口；
+        sticky 则始终留在正常流里：静止时它就在卡片顶部占着自己那一行，
+        绝不可能盖住输入框或「提交并上架」按钮，键盘弹出 / 页面滚动时才贴顶跟随。
+     ② top 不能直接写 20px —— 顶部导航栏是 fixed 且高 72px，汉堡按钮又在右上角，
+        20px 会把整块仪表埋进导航栏、并盖住汉堡按钮；故让开一个 --nav-h（72px）+ 12px。
+     ③ 贴顶时它悬在正文之上，底色必须够实（原 --surface-veil-strong 是 7% 墨色薄纱，
+        下方文字会透上来，看着就是「文字重叠」）→ 换成 94% 白纸令牌 --bg-overlay。 */
+  .submit__votes {
+    position: sticky;
+    top: calc(var(--nav-h) + 12px);
+    /* 基础规则里的 right: 22px 是给 absolute 定位用的；
+       改 sticky 后它属于「横向粘滞」参数，必须清掉，只保留纵向贴顶这一件事 */
+    right: auto;
+    z-index: 5; /* 压在卡片正文之上、导航栏（z-index: 60）之下 */
+    gap: 6px 14px; /* 折行时行距 6px，明细与兑换按钮不会上下相贴 */
+    background: var(--bg-overlay);
+    box-shadow: 0 12px 26px -18px var(--accent-secondary-glow);
+  }
+  /* 输入框获得焦点（键盘弹出）时浏览器会自动把它滚进视口，
+     这里预留「导航栏 + 贴顶票数条」的高度，免得输入框被压在它们底下看不见。 */
+  .field input {
+    scroll-margin-top: calc(var(--nav-h) + 104px);
   }
   /* 页脚：长文案在窄屏自动换行，左右同样留出 16px */
   .footer__bar {
