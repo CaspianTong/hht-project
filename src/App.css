@@ -1,0 +1,1934 @@
+/* =====================================================================
+ * App.css —— 校运会燃音盛典 · 全部页面样式（纯原生 CSS）
+ * ===================================================================== */
+
+/* ---------------- 布局骨架 ---------------- */
+.app {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.app__main {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+}
+.footer {
+  position: relative;
+  z-index: 1;
+}
+.section {
+  width: min(1240px, 92%);
+  margin: 0 auto;
+  padding: 92px 0 30px;
+  scroll-margin-top: calc(var(--nav-h) + 14px);
+}
+
+/* ---------------- 固定背景层：点阵网格 + 弥散光晕（Ambient Light） ----------------
+ * 由 App.jsx 渲染在 Grainient 暖白画布之上、内容层之下（z-index: 0）。
+ * 呼吸感：光晕基础明度 + 随页面滚动变化的 --scroll-progress（由 JS 写入 :root）。
+ */
+.bg-decor {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* 极弱的 1px 点阵网格（Dot Grid / Blueprint）：打破大面积留白的空洞感 */
+.bg-decor__grid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(var(--dot-color) 1px, transparent 1.1px);
+  background-size: var(--dot-gap) var(--dot-gap);
+  opacity: var(--dot-opacity);
+}
+
+/* 超大半径弥散光晕：柔焦网格渐变 + 缓慢呼吸 */
+.bg-decor__glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: calc(0.62 + var(--scroll-progress, 0) * 0.38);
+  transition: opacity 0.9s linear;
+  animation: breathe 19s ease-in-out infinite;
+}
+/* Hero 区域：高级蓝淡晕（原校徽淡珊瑚粉，按全站改色换成高级蓝；
+   类名 --coral 保留不动，只换令牌值，故名字与色相已不一致，以注释为准） */
+.bg-decor__glow--coral {
+  width: 62vw;
+  height: 62vw;
+  min-width: 620px;
+  min-height: 620px;
+  top: -20vw;
+  right: -16vw;
+  background: radial-gradient(circle at 50% 50%, var(--ambient-coral), transparent 68%);
+}
+/* 榜单后方：晨曦蓝 */
+.bg-decor__glow--blue {
+  width: 54vw;
+  height: 54vw;
+  min-width: 520px;
+  min-height: 520px;
+  top: 42vh;
+  left: -18vw;
+  background: radial-gradient(circle at 50% 50%, var(--ambient-blue), transparent 68%);
+  animation-delay: -6.5s;
+}
+/* 页脚方向：高级蓝淡晕（原奶杏金余晖，同上：类名 --gold 保留，值已换蓝） */
+.bg-decor__glow--gold {
+  width: 46vw;
+  height: 46vw;
+  min-width: 440px;
+  min-height: 440px;
+  bottom: -16vw;
+  left: 24vw;
+  background: radial-gradient(circle at 50% 50%, var(--ambient-gold), transparent 70%);
+  animation-delay: -12s;
+}
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+  50% {
+    transform: scale(1.08) translate3d(0, -1.6%, 0);
+  }
+}
+
+/* ---------------- 通用按钮 ---------------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 999px;
+  font-weight: 800;
+  white-space: nowrap;
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease,
+    background-color 0.22s ease,
+    border-color 0.22s ease;
+}
+.btn--lg {
+  padding: 14px 30px;
+  font-size: 16px;
+}
+.btn--block {
+  width: 100%;
+}
+.btn--primary {
+  /* 主按钮：高级蓝实色 + 白字 + 微弱发光软阴影（原落日珊瑚，已按全站改色换掉） */
+  color: var(--text-on-accent);
+  border: 1px solid var(--border-on-accent);
+  background: var(--grad-primary);
+  box-shadow: var(--glow-primary);
+}
+.btn--primary:hover {
+  translate: 0 -2px;
+  box-shadow: var(--glow-primary-hover);
+}
+.btn--primary:active {
+  /* 按下缩放交给公共 Jelly 皮肤（scale: 0.94 0.9），这里只收回 hover 抬升 */
+  translate: 0 0;
+}
+.btn--ghost {
+  /* 次要按钮：白底 + 精密极细边框 + 深灰字，Hover 变淡灰 */
+  color: var(--text-main);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.btn--ghost:hover {
+  translate: 0 -2px;
+  background: var(--surface-veil-strong);
+  border-color: var(--border-strong);
+}
+.btn--gold {
+  /* 次级行动点：首屏「兑换投票次数」（亮一档的高级蓝渐变 + 白字，
+     与主按钮的深蓝实色形成同族层级差；原校徽奶杏金渐变） */
+  color: var(--text-on-gold);
+  border: 1px solid var(--accent-secondary-strong);
+  background: var(--grad-gold);
+  box-shadow: 0 8px 20px -10px var(--accent-secondary-glow);
+}
+.btn--gold:hover {
+  translate: 0 -2px;
+  box-shadow: 0 14px 26px -10px var(--accent-secondary-strong);
+}
+.btn--gold:active {
+  translate: 0 0; /* 按下缩放交给公共 Jelly 皮肤，这里只收回 hover 抬升 */
+}
+.btn__badge {
+  /* 按钮内的计数小徽章：兑换票剩余数量（白玻璃胶囊）——
+     按钮底色改成高级蓝、--text-on-gold 变成白字后，徽章这里必须自己指定字色，
+     否则会（白字 + 白玻璃底）互相看不见 */
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-primary);
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.78);
+}
+
+/* =====================================================================
+ * Jelly 交互皮肤 —— 全站可交互按钮的统一手感（与 React Bits <JellyRadio /> 同源）
+ *
+ * 组件里的“果冻”由 JS 弹簧驱动；原生 <button> / <a> 不额外引入 motion，
+ * 改用等价 CSS 表达，保证全站按钮和胶囊单选组看起来是同一套语言：
+ *   · 静止 → 胶囊 chip（与 .jelly-radio__skin 同款底 / 描边）
+ *   · hover → 11% 染色层（数值取自 .jelly-radio__skin::before）
+ *   · 按下 → scale(0.94, 0.90)：横多压、纵少压 = jelly 的“先宽后高”
+ *   · 松开 → cubic-bezier 过冲回弹 ≈ 组件 bounce 0.25 的余振
+ *
+ * 新控件想接入：加进下面两张选择器表即可；覆盖 --jelly-tint 可切换染色策略
+ * （白玻璃胶囊用墨色染色，实色按钮用白色提亮）。
+ * ===================================================================== */
+.btn,
+.vote-btn,
+.menu-btn,
+.toolbar__clear,
+.toast__close,
+.dropdown__link {
+  --jelly-tint: var(--ink-strong);
+  position: relative;
+  isolation: isolate;
+  transform-origin: 50% 50%;
+  transition:
+    scale 520ms cubic-bezier(0.2, 1.5, 0.36, 1),
+    translate 220ms ease,
+    background-color 200ms ease,
+    color 200ms ease,
+    border-color 200ms ease,
+    box-shadow 220ms ease,
+    opacity 200ms ease;
+}
+.btn::before,
+.vote-btn::before,
+.menu-btn::before,
+.toolbar__clear::before,
+.toast__close::before,
+.dropdown__link::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1; /* 落在底色之上、文字之下：只染色不盖字 */
+  border-radius: inherit;
+  background: var(--jelly-tint);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+}
+/* 实色（高级蓝 / 墨色）控件改用白色提亮，等价组件“选中态不叠暗色”的处理 */
+.btn--primary,
+.btn--gold,
+.vote-btn {
+  --jelly-tint: #ffffff;
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover::before,
+  .vote-btn:not(:disabled):hover::before,
+  .menu-btn:hover::before,
+  .toolbar__clear:hover::before,
+  .toast__close:hover::before,
+  .dropdown__link:hover::before {
+    opacity: 0.11;
+  }
+}
+.btn:active,
+.vote-btn:not(:disabled):active,
+.menu-btn:active,
+.toolbar__clear:active,
+.toast__close:active,
+.dropdown__link:active {
+  scale: 0.94 0.9;
+  /* 压下要快、松手才交给 520ms 回弹：按上面 transition 的顺序给时长表 */
+  transition-duration: 90ms, 220ms, 200ms, 200ms, 200ms, 220ms, 200ms;
+}
+/* 键盘聚焦时别把胶囊压成直角（全局 button:focus-visible 覆盖成了 6px 圆角） */
+.btn:focus-visible,
+.vote-btn:focus-visible {
+  border-radius: 999px;
+}
+.menu-btn:focus-visible,
+.dropdown__link:focus-visible {
+  border-radius: 14px;
+}
+.toolbar__clear:focus-visible {
+  border-radius: 8px;
+}
+.toast__close:focus-visible {
+  border-radius: 10px;
+}
+
+/* ---------- React Bits <JellyRadio /> 胶囊皮肤 ---------- */
+/* 工具栏的分类筛选胶囊（.toolbar__chips / .toolbar__jelly）与投稿表单里的分类单选
+   （.field__jelly）都已移除；组件文件 src/components/JellyRadio.jsx 仍保留，
+   需要时直接放进任意容器即可（皮肤随组件自带） */
+/* 胶囊皮肤接入本项目控件语言：白玻璃底 + 极细描边
+   （与 .btn / .field input 同一配方；选中态是墨色实底，不叠描边） */
+.jelly-radio__skin {
+  border: 1px solid var(--border-subtle);
+}
+.jelly-radio__chip[data-on='true'] .jelly-radio__skin {
+  border-color: transparent;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* 按下缩放是即时反馈而非动画，但这里跟随组件一起降级，保持一致 */
+  .btn:active,
+  .vote-btn:not(:disabled):active,
+  .menu-btn:active,
+  .toolbar__clear:active,
+  .toast__close:active,
+  .dropdown__link:active {
+    scale: none;
+  }
+}
+
+/* ---------------- 区块标题 ---------------- */
+.section__head {
+  text-align: center;
+  margin-bottom: 30px;
+}
+.section__eyebrow {
+  display: inline-block;
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: var(--accent-secondary);
+  background: var(--accent-secondary-soft);
+  border: 1px solid var(--accent-secondary-glow);
+  margin-bottom: 16px;
+}
+.section__title {
+  font-size: clamp(26px, 4vw, 38px);
+  font-weight: 900;
+  letter-spacing: -0.02em; /* 瑞士排版：大字收紧字距 */
+  color: var(--text-main);
+}
+.section__sub {
+  margin-top: 10px;
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+/* =====================================================================
+ * Navbar —— 吸顶毛玻璃 + 汉堡下拉菜单
+ * ===================================================================== */
+.navbar {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: var(--nav-h);
+  z-index: 60;
+  background: var(--bg-scrim);
+  border-bottom: 1px solid var(--border-subtle);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  backdrop-filter: blur(16px) saturate(160%);
+}
+.navbar__inner {
+  width: min(1240px, 92%);
+  margin: 0 auto;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.navbar__brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.navbar__logo {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  color: var(--text-main);
+  background: var(--grad-primary-soft);
+  border: 1px solid var(--border-strong);
+  box-shadow:
+    0 0 22px var(--accent-primary-glow),
+    inset 0 0 12px var(--surface-veil);
+}
+.navbar__text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+  min-width: 0;
+}
+.navbar__title {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text-main); /* 主标题改为实色玄武岩墨色，告别橙红渐变 */
+}
+.navbar__subtitle {
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 汉堡按钮 */
+.navbar__menu {
+  position: relative;
+}
+.menu-btn {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--bg-card-hover);
+  border: 1px solid var(--border-subtle);
+}
+.menu-btn:hover {
+  background: var(--surface-veil-strong);
+}
+.menu-btn__box {
+  position: relative;
+  display: block;
+  width: 20px;
+  height: 14px;
+}
+.menu-btn__line {
+  position: absolute;
+  left: 0;
+  height: 2px;
+  width: 20px;
+  border-radius: 2px;
+  background: var(--text-main);
+  transition:
+    top 0.3s ease,
+    opacity 0.2s ease,
+    transform 0.3s ease;
+}
+.menu-btn__line--1 { top: 0; }
+.menu-btn__line--2 { top: 6px; }
+.menu-btn__line--3 { top: 12px; }
+.menu-btn--open .menu-btn__line--1 {
+  top: 6px;
+  transform: rotate(45deg);
+}
+.menu-btn--open .menu-btn__line--2 {
+  opacity: 0;
+}
+.menu-btn--open .menu-btn__line--3 {
+  top: 6px;
+  transform: rotate(-45deg);
+}
+
+/* 下拉菜单 */
+.dropdown {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  width: min(320px, calc(100vw - 32px));
+  padding: 10px;
+  border-radius: 20px;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-card);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(160%);
+  transform-origin: top right;
+  animation: dropIn 0.24s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+@keyframes dropIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.dropdown__link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 14px;
+}
+.dropdown__link + .dropdown__link {
+  margin-top: 2px;
+}
+.dropdown__link:hover {
+  background: var(--surface-veil-strong);
+}
+/* 菜单项内容：标题 + 描述两行文字 —— 原先左侧的 emoji 图标方块已按需求去掉 */
+.dropdown__meta {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.35;
+}
+.dropdown__meta strong {
+  font-size: 15px;
+  color: var(--text-main);
+}
+.dropdown__meta small {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+/* =====================================================================
+ * Hero —— 首屏氛围区
+ * ===================================================================== */
+.hero {
+  position: relative;
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: calc(var(--nav-h) + 54px) 20px 80px;
+  overflow: hidden;
+}
+.hero__inner {
+  position: relative;
+  z-index: 1;
+  width: min(980px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  /* 入场：backwards 填充，动画结束后把 opacity/transform 交还给下方的视差规则 */
+  animation: riseIn 0.8s ease backwards;
+  /* 滑动叙事：向下滚动时 Hero 文字轻微视差渐隐（--hero-progress 由 Hero.jsx 写入） */
+  opacity: calc(1 - var(--hero-progress, 0) * 0.9);
+  transform: translateY(calc(var(--hero-progress, 0) * 34px));
+  will-change: opacity, transform;
+}
+@keyframes riseIn {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.hero__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: var(--accent-secondary);
+  background: var(--surface-veil);
+  border: 1px solid var(--border-strong);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+.hero__title {
+  margin: 0;
+}
+.hero__title-main {
+  display: block;
+  font-size: clamp(38px, 7vw, 76px);
+  font-weight: 900;
+  letter-spacing: -0.02em; /* 瑞士排版：深邃墨色大字 + 收紧字距 */
+  line-height: 1.12;
+}
+.hero__title-sub {
+  display: block;
+  margin-top: 12px;
+  font-size: clamp(15px, 2.4vw, 21px);
+  font-weight: 700;
+  letter-spacing: 3px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+.grad-text {
+  /* 主标题不再使用橙红渐变，统一为实色玄武岩深灰黑 */
+  color: var(--text-main);
+  letter-spacing: -0.02em;
+}
+/* CTA：首屏动作按钮排（兑换投票次数 / 立即进入投票区 / 逛专辑封面墙 / 作者的话） */
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 8px;
+}
+.hero__scroll-hint {
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--text-muted);
+}
+.hero__scroll-line {
+  width: 1px;
+  height: 30px;
+  background: linear-gradient(180deg, transparent, var(--accent-primary));
+  animation: scrollDrop 1.6s ease-in-out infinite;
+}
+@keyframes scrollDrop {
+  0% { transform: scaleY(0); transform-origin: top; }
+  55% { transform: scaleY(1); transform-origin: top; }
+  56% { transform: scaleY(1); transform-origin: bottom; }
+  100% { transform: scaleY(0); transform-origin: bottom; }
+}
+/* =====================================================================
+ * Voting —— 搜索 / 排序工具栏（歌曲分类筛选已移除）
+ * ===================================================================== */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 30px 0 24px;
+}
+.toolbar__search {
+  position: relative;
+  flex: 1 1 260px;
+  min-width: 220px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px 0 14px;
+  border-radius: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.toolbar__search:focus-within {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px var(--accent-blue-glow);
+}
+.toolbar__search-icon {
+  font-size: 15px;
+  opacity: 0.7;
+}
+.toolbar__search input {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 10px;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-main);
+}
+.toolbar__search input::placeholder {
+  color: var(--text-muted);
+}
+.toolbar__clear {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--text-muted);
+}
+.toolbar__clear:hover {
+  background: var(--surface-veil-strong);
+  color: var(--text-main);
+}
+/* 分类胶囊（.chip / .chip__count / .chip--mini）已随「分类筛选」与卡片精简移除 */
+.toolbar__sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 46px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card-hover);
+}
+.toolbar__sort select {
+  background: transparent;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+.toolbar__sort select option {
+  background: var(--bg-surface);
+  color: var(--text-main);
+}
+
+/* 榜单列表：单列铺满（卡片是「歌名/歌手 —— 投票按钮 —— 票数」的一行，
+   只有单列才能让票数稳定贴在最右侧、各行数字对齐成一条竖线） */
+.song-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+.voting__tip {
+  margin-top: 26px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.link-btn {
+  /* 正文里的行动文字按钮（投票区提示行尾的「兑换投票次数」） */
+  margin-left: 8px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--accent-primary-hover);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: color 200ms ease;
+}
+.link-btn:hover {
+  color: var(--accent-secondary);
+}
+
+/* 空结果占位 */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 72px 20px;
+  text-align: center;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface-veil);
+}
+.empty__icon {
+  font-size: 46px;
+}
+.empty h3 {
+  font-size: 20px;
+  color: var(--text-main);
+}
+.empty p {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+/* =====================================================================
+ * SongCard —— 精简榜单卡片（单行：歌名 + 歌手 ｜ 投票按钮 ｜ 票数）
+ *
+ * 说明：封面图、TOP 名次徽章、分类标签、音浪条、试听按钮、推荐语、
+ *       投稿班级/时长徽章已按需求全部移除，卡片变成一条 60px 左右的榜单行。
+ * ===================================================================== */
+.song-card {
+  position: relative;
+  display: flex;
+  flex-direction: row; /* 一行三段：左信息 / 中按钮 / 右票数 */
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  /* 轻奢悬浮：纯净白底 + 轻微磨砂玻璃 + 精密极细暖灰边框 + 多层复合软阴影 */
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+  box-shadow: var(--shadow-card);
+  /* 滑动叙事：进入视口前下沉半透明，进入后按 --reveal-delay 交错淡入 */
+  opacity: 0;
+  transform: translateY(var(--reveal-distance));
+  transition:
+    opacity var(--reveal-duration) var(--reveal-ease) var(--reveal-delay, 0ms),
+    transform var(--reveal-duration) var(--reveal-ease) var(--reveal-delay, 0ms),
+    translate 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+/* 进入视口标记（由 useRevealGroup 添加）：两套选择器并列 ——
+   data-revealed 是主锚点（不写在任何 props 里，React 重写 class 属性时冲不掉它），
+   .is-revealed 保留兼容。二者都不能少，否则卡片会退回上面的 opacity: 0（凭空消失）。 */
+.song-card[data-revealed],
+.song-card.is-revealed {
+  opacity: 1;
+  transform: none;
+}
+/* 悬停抬升只给「真悬停」设备（鼠标 / 触控板）：
+   触摸屏上 tap 会留下粘住的 :hover，手机会出现「卡片一直浮着、点别处才落下」的怪现象 */
+@media (hover: hover) and (pointer: fine) {
+  .song-card:hover {
+    translate: 0 -2px; /* 单行卡片只轻轻抬起 2px（translate 与视差 transform 互不干扰） */
+    border-color: var(--border-active); /* 边框高亮为柔和高级蓝 */
+    box-shadow: var(--shadow-card-hover); /* 阴影自然扩散 */
+  }
+}
+/* 这里刻意没有「已投票」状态类：投票后卡片外观保持不变（className 一旦随投票变化，
+   React 会整体重写 class 属性，把滚动淡入标记冲掉 → 卡片 opacity: 0 消失）。
+   投票成功只由 Toast 与票数旁的 +1 浮字表达。 */
+
+/* ---------- 封面 / 名次徽章 / 分类标签：卡片精简后已移除 ---------- */
+/* +1 投票成功浮字（从票数格上方轻轻飘起） */
+.song-card__plus {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% - 2px);
+  z-index: 6;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 900;
+  white-space: nowrap;
+  color: var(--accent-secondary);
+  background: var(--bg-scrim);
+  border: 1px solid var(--accent-secondary-strong);
+  box-shadow: 0 0 18px var(--accent-secondary-strong);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  animation: plusFloat 0.95s ease forwards;
+  pointer-events: none;
+}
+@keyframes plusFloat {
+  0% { opacity: 0; transform: translateY(6px) scale(0.7); }
+  20% { opacity: 1; transform: translateY(0) scale(1.08); }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-16px) scale(1); }
+}
+/* ---------- 左侧：歌名 + 歌手（卡片只保留这两项歌曲信息） ---------- */
+.song-card__main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0; /* 允许长歌名 / 长歌手被截断，而不是把按钮和票数挤出卡片 */
+}
+.song-card__title {
+  font-size: 16.5px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.song-card__artist {
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* ---------- 最右侧：票数（同时是 +1 浮字的定位锚点） ---------- */
+.song-card__votes {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 5px;
+  min-width: 96px; /* 固定票数区宽度：各行数字右侧对齐，一眼扫下来就是排行榜 */
+  font-variant-numeric: tabular-nums;
+}
+.song-card__flame {
+  font-size: 13px;
+  filter: drop-shadow(0 0 8px var(--accent-primary-glow));
+}
+.song-card__votes strong {
+  font-size: 19px;
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-secondary);
+  text-shadow: 0 0 20px var(--accent-secondary-glow);
+}
+.song-card__votes em {
+  font-style: normal;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+/* 投票按钮（旧版「点击即刻投票」皮肤：现已由下方 .hold-button.vote-hold 长按判定版取代，
+   规则原样保留在此，方便随时改回点击式投票） */
+.vote-btn {
+  flex: 0 0 auto;
+  padding: 11px 18px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-on-accent); /* 高级蓝底白字 */
+  background: var(--grad-primary);
+  border: 1px solid var(--border-on-accent);
+  box-shadow: var(--glow-primary);
+}
+.vote-btn:hover:not(:disabled) {
+  /* hover 也带果冻感：scale 走 Jelly 皮肤的 520ms 过冲曲线，像被轻轻捏起 */
+  translate: 0 -2px;
+  scale: 1.03;
+  box-shadow: var(--glow-primary-hover);
+}
+.vote-btn.is-voted {
+  color: var(--accent-green);
+  background: var(--surface-veil-strong);
+  border: 1px solid var(--accent-green-strong);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+/* 窄屏：把一行缩到刚好放得下（歌名/歌手截断，按钮与票数等比收窄） */
+@media (max-width: 520px) {
+  .song-card {
+    gap: 10px;
+    padding: 10px 12px;
+  }
+  .song-card__title {
+    font-size: 15px;
+  }
+  .song-card__artist {
+    font-size: 12px;
+  }
+  .song-card__votes {
+    min-width: 72px;
+  }
+  .song-card__votes strong {
+    font-size: 17px;
+  }
+  .vote-btn {
+    padding: 8px 12px;
+    font-size: 12.5px;
+  }
+}
+
+/* ---------- 投票按钮的「长按判定」皮肤（复用 components/bottom2 的 HoldButton） ----------
+   尺寸 / 字重 / 光晕对齐旧的 .vote-btn，颜色与圆角通过组件 props 注入
+   （--hb-bg / --hb-fill / --hb-text / --hb-fill-text / --hb-radius 由 bottom2.jsx 写在行内 style）。
+   长按推进色（--hb-fill）在 SongCard 里传的是纯白 → 高级蓝底上漫过一道白浪；
+   于是这里额外覆盖三处「跟着 --hb-fill 一起变白就会隐形」的细节：
+     · --hb-glow       推进期的外发光（组件默认取 --hb-fill，白色在暖白底上看不见）→ 高级蓝
+     · 聚焦描边         组件默认取 --hb-fill → 全站统一的电波蓝
+     · 成功扩散光环     keyframes 里也取 --hb-fill → 另写一套高级蓝 voteHoldPulse
+   注意：CSS 变量由组件注入，这里只覆盖「本站皮肤」的部分，避免动到特效本身。 */
+.hold-button.vote-hold {
+  flex: 0 0 auto;
+  font-size: 14px;
+  font-weight: 800;
+  /* 静止态：与旧版一致的高级蓝光晕 + 内侧高光 */
+  --hb-shadow: var(--glow-primary), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  /* 推进态：白色浪涌 + 高级蓝蓄力光晕，在暖白底上层次最清楚 */
+  --hb-glow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 10px 32px -6px var(--accent-primary-strong);
+}
+/* 键盘聚焦时保持胶囊外形（全局 button:focus-visible 会把圆角压成 6px 直角环），
+   描边颜色改用全站统一的电波蓝（组件默认取 --hb-fill，白色在暖白底上等于看不见） */
+.hold-button.vote-hold:focus-visible {
+  border-radius: var(--hb-radius);
+  outline-color: var(--accent-blue);
+}
+/* 长按成功瞬间的扩散光环：换一套高级蓝 keyframes（组件默认那套取 --hb-fill，白色会隐形） */
+@keyframes voteHoldPulse {
+  from {
+    opacity: 1;
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-primary) 55%, transparent);
+  }
+  to {
+    opacity: 0;
+    box-shadow: 0 0 0 14px color-mix(in srgb, var(--accent-primary) 0%, transparent);
+  }
+}
+.hold-button.vote-hold[data-glow='true'][data-phase='done'] .hold-button__pulse {
+  animation: voteHoldPulse 600ms var(--hb-ease-out) forwards;
+}
+/* 票池见底：所有卡片统一走中性灰锁定态（「票已用完」），不区分投没投过 ——
+   投完票的卡片要保持原样，不做任何状态区分 */
+.hold-button.vote-hold--spent {
+  --hb-shadow: none;
+}
+.hold-button.vote-hold--spent:disabled {
+  opacity: 1;
+  cursor: not-allowed;
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+}
+@media (hover: hover) and (pointer: fine) {
+  /* 悬停轻轻抬起 + 光晕加浓；长按中 / 长按完成态不叠加，免得和长按特效互相打架 */
+  .hold-button.vote-hold:not(:disabled):not([data-phase='holding']):not([data-phase='done']):hover {
+    translate: 0 -2px;
+    box-shadow: var(--glow-primary-hover);
+  }
+}
+@media (max-width: 520px) {
+  .hold-button.vote-hold {
+    height: 38px;
+    padding: 0 14px;
+    font-size: 12.5px;
+  }
+}
+/* =====================================================================
+ * Submit —— 提交我的音乐
+ * ===================================================================== */
+/* 卡片只放投稿表单（左侧介绍栏 .submit__intro / .submit__icon / .submit__tips
+   已整栏移除）→ 单列布局 */
+.submit__card {
+  /* position: relative —— 桌面端让「剩余票数」仪表悬浮在卡片右上角 */
+  position: relative;
+  display: block;
+  padding: 36px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+  box-shadow: var(--shadow-card);
+}
+/* 介绍栏移除后表单保持原来的视觉宽度并居中，免得两个输入框被拉得过长 */
+.submit__form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 680px;
+  margin-inline: auto;
+}
+
+/* ---------- 提交按钮的「长按判定」皮肤（与榜单「投 TA 一票」同款：复用 components/bottom2 的 HoldButton） ----------
+   尺寸 / 圆角 / 字重对齐被它替换掉的 .btn--primary.btn--lg.btn--block（整宽大按钮），
+   颜色与圆角仍由组件 props 注入（--hb-bg / --hb-fill / --hb-text / --hb-fill-text / --hb-radius）：
+   高级蓝底 + 纯白推进色 → 按住时蓝底上漫过一道白浪，浪峰扫过的文案同步翻成深墨色。
+   与上面 .vote-hold 同源的三处覆盖照做（外发光 / 聚焦描边 / 成功扩散光环），
+   其中扩散光环直接复用那一套 voteHoldPulse keyframes，不再复制一份动画。 */
+.hold-button.submit-hold {
+  width: 100%;
+  font-size: 16px;
+  font-weight: 800;
+  /* 静止态：与旧版主按钮一致的高级蓝光晕 + 内侧高光 */
+  --hb-shadow: var(--glow-primary), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  /* 推进态：白色浪涌 + 高级蓝蓄力光晕，在暖白底上层次最清楚 */
+  --hb-glow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 10px 32px -6px var(--accent-primary-strong);
+}
+/* 键盘聚焦时保持胶囊外形（全局 button:focus-visible 会把圆角压成 6px 直角环），
+   描边沿用全站统一的电波蓝（组件默认取 --hb-fill，白色在暖白底上等于看不见） */
+.hold-button.submit-hold:focus-visible {
+  border-radius: var(--hb-radius);
+  outline-color: var(--accent-blue);
+}
+/* 长按成功瞬间的扩散光环：复用 .vote-hold 那套高级蓝 keyframes */
+.hold-button.submit-hold[data-glow='true'][data-phase='done'] .hold-button__pulse {
+  animation: voteHoldPulse 600ms var(--hb-ease-out) forwards;
+}
+@media (hover: hover) and (pointer: fine) {
+  /* 悬停轻轻抬起 + 光晕加浓；长按中 / 长按完成态不叠加，免得和长按特效互相打架 */
+  .hold-button.submit-hold:not(:disabled):not([data-phase='holding']):not([data-phase='done']):hover {
+    translate: 0 -2px;
+    box-shadow: var(--glow-primary-hover);
+  }
+}
+/* ---------------------------------------------------------------------
+ * 剩余票数仪表（卡片右上角）：免费票 + 兑换票的实时合计
+ * 与首屏「兑换投票次数」按钮 / 兑换浮层共用蓝调令牌：
+ *   --accent-secondary        亮一档的高级蓝 → 大号数字
+ *   --accent-secondary-strong 描边   · --accent-secondary-glow 投影
+ *   --surface-veil-strong     白玻璃底
+ * 数字用 tabular-nums —— 投票时位数变化不会让整块左右抖动。
+ * ------------------------------------------------------------------- */
+.submit__votes {
+  position: absolute;
+  top: 20px;
+  right: 22px;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 12px 15px 13px;
+  border-radius: var(--radius);
+  text-align: right;
+  background: var(--surface-veil-strong);
+  border: 1px solid var(--accent-secondary-strong);
+  box-shadow: 0 10px 24px -16px var(--accent-secondary-glow);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.submit__votes-label {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+}
+.submit__votes-num {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.submit__votes-num strong {
+  font-size: 27px;
+  font-weight: 900;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-secondary);
+}
+.submit__votes-meta {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.submit__votes-btn {
+  margin-top: 9px;
+  padding: 7px 13px;
+  font-size: 12.5px;
+}
+/* 票已全部投出 → 换成深一档的高级蓝警示色，并把按钮文案让给「去兑换」 */
+.submit__votes.is-empty {
+  border-color: var(--accent-primary-strong);
+  box-shadow: 0 10px 24px -16px var(--accent-primary-glow);
+}
+.submit__votes.is-empty .submit__votes-num strong {
+  color: var(--accent-primary-hover);
+}
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.field > span {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+/* 投稿表单只剩「歌曲名称 / 歌手」两个文本输入，select / textarea 样式一并移除 */
+.field input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-inset);
+  color: var(--text-main);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.field input:focus {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px var(--accent-blue-glow);
+}
+/* 投稿表单的输入框不再带 placeholder（「例如：…」示例文案已按需求移除），
+   原 .field input::placeholder 的着色规则随之删除 */
+.form__error {
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--accent-primary-hover);
+  background: var(--accent-primary-soft);
+  border: 1px solid var(--accent-primary-strong);
+}
+/* --- 验证码输入区皮肤：React Bits <CodeSlots />（现由「兑换投票次数」浮层复用）---
+ * 组件内部所有颜色 / 尺寸都走 --cs-* 自定义属性（由 JSX 传入设计令牌），
+ * 这里只负责外层容器；窄屏再压一档槽位尺寸（内联样式需 !important 覆盖）。
+ */
+.passcode {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px;
+  border-radius: var(--radius);
+  background: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.passcode.is-error {
+  border-color: var(--accent-primary-strong);
+  box-shadow: 0 0 0 3px var(--accent-primary-soft);
+}
+.passcode.is-success {
+  border-color: var(--accent-green-strong);
+  box-shadow: 0 0 0 3px var(--accent-green-soft);
+}
+.passcode__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+.passcode__label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+.passcode__hint {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text-muted);
+}
+.passcode__demo {
+  padding: 1px 7px;
+  margin: 0 3px;
+  border-radius: 7px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--accent-primary-hover);
+  background: var(--surface-veil-strong);
+  border: 1px solid var(--accent-primary-strong);
+}
+.passcode__status {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.7;
+  color: var(--text-muted);
+}
+.passcode__status.is-checking {
+  color: var(--accent-blue);
+}
+.passcode__status.is-verified {
+  color: var(--accent-green);
+}
+.passcode__status.is-error {
+  color: var(--accent-primary-hover);
+}
+@media (max-width: 460px) {
+  .passcode {
+    padding: 14px;
+  }
+}
+
+/* =====================================================================
+ * 专辑封面墙 —— 反转卡片（原先吸顶滚动主视觉所在的位置）
+ *
+ * 特效来自 src/components/music-card.jsx + music-card.css（3D 翻转 /
+ * 悬停倾斜 / 反光 / 拖拽翻面），这里只负责「正方形卡片 + 栅格 + 排版」。
+ * 正面：专辑名（衬线展示字 --font-display）· 背面：专辑封面
+ * ===================================================================== */
+.albums__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 22px;
+}
+
+/* 正方形卡片：宽度交给栅格，高度跟宽度 1:1
+   （覆盖组件默认的固定 260px 高，这样窄屏也不会被撑成竖的长方形） */
+.albums .flip-card {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+}
+
+/* 卡片面加一圈极细暖灰边框：浅色底上把纸面 / 照片的边缘交代清楚 */
+.album-card .flip-card__face {
+  border: 1px solid var(--border-subtle);
+}
+
+/* ---------- 正面：专辑名 ---------- */
+.album-card__front {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 18px 15px;
+  text-align: center;
+}
+.album-card__index {
+  font-family: var(--font-display);
+  font-size: 12px;
+  letter-spacing: 0.3em;
+  color: var(--accent-secondary);
+}
+.album-card__title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 500; /* 衬线字只有 400 / 700：500 会落到常规字重，避免宋体被压成假粗 */
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  color: var(--text-main);
+  /* 最多 3 行 + 省略号：再长的专辑名也不会把正方形卡片撑破 */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+.album-card__rule {
+  width: 44px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent-secondary), transparent);
+}
+.album-card__hint {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ---------- 背面：专辑封面（铺满正方形） ---------- */
+.album-card__back {
+  height: 100%;
+  margin: 0;
+}
+.album-card__back img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+/* 手机：整排改成「单行水平横滑」（隐藏原生滚动条 + iOS 惯性滚动 + 轻微吸附），
+   一屏露出约两张，右边那半张就是「还能往左滑」的提示。
+   卡片宽度同步骤收一号，保证正方形里塞得下专辑名。 */
+@media (max-width: 640px) {
+  .albums__grid {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 14px;
+    overflow-x: auto;
+    /* overflow-x 一旦不是 visible，另一轴会被算成 auto —— 必须显式 hidden，
+       否则横滑条里会莫名多出一根竖向滚动条，还会把卡片阴影裁成硬边 */
+    overflow-y: hidden;
+    padding: 2px 2px 10px; /* 给阴影 / 抬升留出空间，不被 overflow 裁掉 */
+    -webkit-overflow-scrolling: touch; /* iOS 惯性滚动：手指一甩就滑出去 */
+    overscroll-behavior-x: contain; /* 滑到头不联动浏览器的前进 / 后退手势 */
+    scroll-snap-type: x proximity; /* 轻轻吸附，不会「抽」走用户的手指 */
+    scrollbar-width: none; /* Firefox / 新版 WebKit */
+    -ms-overflow-style: none;
+  }
+  /* 隐藏原生滚动条：全站那根高级蓝粗滚动条放在横滑条上很扎眼 */
+  .albums__grid::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
+  .albums__grid > .flip-card {
+    flex: 0 0 clamp(150px, 46vw, 196px); /* 一屏约 2 张，右侧留出一截提示可滑 */
+    width: auto;
+    scroll-snap-align: center;
+  }
+  /* 卡片自身让出手势：组件默认的 touch-action: pan-y 会把水平方向的滑动「吃掉」，
+     父级横滑条就永远滑不动。小屏改成双向都交给浏览器 ——
+       横向滑 = 滑动卡片墙，纵向滑 = 翻页；翻面改由轻点触发（桌面端行为完全不变，
+       仍是「按住拖动翻面」）。先写 auto 兜底，认识多值 touch-action 的内核再用 pan-x pan-y。 */
+  .albums .flip-card {
+    touch-action: auto;
+    touch-action: pan-x pan-y;
+  }
+  .album-card__front {
+    gap: 10px;
+    padding: 14px 10px;
+  }
+  .album-card__title {
+    font-size: 15px;
+  }
+  .album-card__hint {
+    letter-spacing: 0.16em;
+  }
+}
+
+/* =====================================================================
+ * Footer —— 版权信息
+ * ===================================================================== */
+.footer {
+  margin-top: 110px;
+  background: var(--bg-overlay);
+  border-top: 1px solid var(--border-subtle);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+.footer__bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 18px;
+  padding: 18px 0;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.footer__bar p {
+  margin: 0;
+}
+/* =====================================================================
+ * Toast —— 全局轻提示
+ * ===================================================================== */
+.toast-stack {
+  position: fixed;
+  left: 50%;
+  bottom: 26px;
+  transform: translateX(-50%);
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(440px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 12px 12px 14px;
+  border-radius: 16px;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-float);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  pointer-events: auto;
+  animation: toastIn 0.3s ease both;
+}
+.toast--success {
+  border-color: var(--accent-green-strong);
+}
+.toast--info {
+  border-color: var(--accent-blue-strong);
+}
+.toast--warn {
+  border-color: var(--accent-secondary-strong);
+}
+.toast__icon {
+  font-size: 20px;
+  flex: 0 0 auto;
+}
+.toast__text {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+.toast__close {
+  flex: 0 0 auto;
+  padding: 0 6px;
+  border-radius: 10px;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--text-muted);
+}
+.toast__close:hover {
+  color: var(--text-main);
+}
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* =====================================================================
+ * 兑换投票次数 —— 首屏高级蓝按钮（.btn--gold）+ 浮层卡片
+ *   卡片里只有一个密钥输入框：React Bits <CodeSlots />（8 位填满即自动兑换）
+ *   层级：Toast 120 < 兑换浮层 130，保证兑换结果的 Toast 不被卡片挡住
+ * ===================================================================== */
+.redeem {
+  position: fixed;
+  inset: 0;
+  z-index: 130;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.redeem__backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-scrim);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  animation: redeemFade 0.24s ease both;
+}
+.redeem__card {
+  position: relative;
+  z-index: 1;
+  width: min(460px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 30px 28px 24px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-subtle);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+  box-shadow: var(--shadow-float);
+  animation: toastIn 0.3s cubic-bezier(0.22, 0.75, 0.28, 1) both;
+}
+.redeem__close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text-muted);
+  background: var(--bg-wash);
+  border: 1px solid var(--border-subtle);
+  transition: color 200ms ease, background-color 200ms ease;
+}
+.redeem__close:hover {
+  color: var(--text-main);
+  background: var(--surface-veil-strong);
+}
+.redeem__head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+.redeem__icon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  font-size: 26px;
+  background: var(--grad-gold);
+  border: 1px solid var(--accent-secondary-strong);
+  box-shadow: 0 0 22px var(--accent-secondary-glow);
+}
+.redeem__title {
+  font-size: 20px;
+  color: var(--text-main);
+}
+.redeem__sub {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+/* 密钥输入区：复用 .passcode 皮肤，在卡片里居中摆放 */
+.redeem .passcode {
+  align-items: center;
+  text-align: center;
+}
+.redeem__foot {
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text-muted);
+}
+@keyframes redeemFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+/* 窄屏：8 个格子要能整行放进卡片。
+   CodeSlots 的尺寸来自 JSX 内联传入的 --cs-* 变量，故这里必须 !important 覆盖 */
+@media (max-width: 620px) {
+  /* 620px 以下先收一档（8 × 40px + 7 × 8px = 376px 会顶破卡片） */
+  .redeem .code-slots {
+    --cs-size: 34px !important;
+    --cs-height: 42px !important;
+    --cs-gap: 6px !important;
+    --cs-font: 17px !important;
+  }
+}
+@media (max-width: 430px) {
+  .redeem {
+    padding: 16px;
+  }
+  .redeem__card {
+    padding: 24px 18px 20px;
+  }
+  .redeem .code-slots {
+    --cs-size: 30px !important;
+    --cs-height: 38px !important;
+    --cs-gap: 5px !important;
+    --cs-font: 15px !important;
+    --cs-radius: 9px !important;
+  }
+}
+
+/* =====================================================================
+ * 作者的话 —— 首屏「✍️ 作者的话」信笺浮层
+ *   框：纸白微渐变 + 极细暖灰外边框，再压一圈 inset 9px 的第二道细框（信笺双框）
+ *   字：正文走 --font-display 衬线展示字（与专辑名的同一套字），
+ *       行高 2.05 / 两端对齐，长文不压眼；首段首字下沉 + 右上角衬线引号水印
+ *   长文多于一屏时只有 .author__letter 内部滚动，信头 / 落款留在原位
+ *   层级：与兑换浮层同为 130（两者不会同时打开）
+ * ===================================================================== */
+.author {
+  position: fixed;
+  inset: 0;
+  z-index: 130;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.author__backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-scrim);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  animation: redeemFade 0.24s ease both; /* 复用兑换浮层的遮罩淡入 */
+}
+.author__card {
+  position: relative;
+  z-index: 1;
+  width: min(660px, 100%);
+  max-height: min(86svh, 800px);
+  display: flex;
+  flex-direction: column;
+  padding: 32px 38px 24px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(168deg, #ffffff 0%, #fdfbf8 46%, #f7f3ec 100%);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-float);
+  animation: toastIn 0.32s cubic-bezier(0.22, 0.75, 0.28, 1) both;
+  overflow: hidden;
+}
+/* 第二道细框：压在纸面上的装饰内框（纯装饰，不参与交互） */
+.author__card::before {
+  content: '';
+  position: absolute;
+  inset: 9px;
+  border: 1px solid var(--border-subtle);
+  border-radius: calc(var(--radius-lg) - 8px);
+  pointer-events: none;
+}
+/* 右上角超大号衬线引号水印（避开关闭按钮，只占 6% 墨色，不抢正文） */
+.author__card::after {
+  content: '”';
+  position: absolute;
+  top: -12px;
+  right: 52px;
+  font-family: var(--font-display);
+  font-size: 96px;
+  line-height: 1;
+  color: var(--watermark);
+  pointer-events: none;
+}
+.author__close {
+  position: absolute;
+  z-index: 2;
+  top: 15px;
+  right: 15px;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text-muted);
+  background: var(--bg-wash);
+  border: 1px solid var(--border-subtle);
+  transition: color 200ms ease, background-color 200ms ease;
+}
+.author__close:hover {
+  color: var(--text-main);
+  background: var(--surface-veil-strong);
+}
+.author__close:focus-visible {
+  border-radius: 50%; /* 别被全局 button:focus-visible 的 6px 圆角切成方角 */
+}
+/* ---------- 信头 ---------- */
+.author__head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0 18px;
+  text-align: center;
+}
+.author__eyebrow {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  text-indent: 0.32em; /* 居中补偿：右侧多出的空字距也补上，视觉才真居中 */
+  color: var(--accent-secondary);
+}
+.author__title {
+  font-family: var(--font-display);
+  font-size: clamp(23px, 3.4vw, 31px);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.3;
+  color: var(--text-main);
+}
+/* 信头下的细线：两端渐隐的高级蓝（与专辑卡片同一套语言） */
+.author__rule {
+  width: min(220px, 56%);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent-secondary), transparent);
+}
+.author__meta {
+  font-size: 11.5px;
+  letter-spacing: 0.18em;
+  color: var(--text-muted);
+}
+
+/* ---------- 正文（信纸排版） ---------- */
+.author__letter {
+  position: relative;
+  flex: 1;
+  min-height: 0; /* 让 flex 子项真的能内部滚动 */
+  overflow-y: auto;
+  padding: 20px 8px 8px;
+  font-family: var(--font-display);
+  font-size: 15.5px;
+  line-height: 2.05;
+  letter-spacing: 0.015em;
+  text-align: justify;
+  color: var(--text-secondary);
+  overscroll-behavior: contain; /* 滚到底不要把整页带着滚 */
+}
+/* 中文长文：段首缩进两格，更像信纸 */
+.author__letter p + p {
+  margin-top: 14px;
+  text-indent: 2em;
+}
+/* 首段＝信首语：压深一档、略大，用「首字下沉」开场（衬线大字 + 高级蓝） */
+.author__letter p:first-child {
+  font-size: 16.5px;
+  color: var(--text-main);
+}
+.author__letter p:first-child::first-letter {
+  float: left;
+  margin: 6px 10px 0 0;
+  font-size: 52px;
+  font-weight: 700;
+  line-height: 0.86;
+  color: var(--accent-primary);
+}
+/* 极细滚动条：提示还有下文，又不抢视线 */
+.author__letter::-webkit-scrollbar {
+  width: 6px;
+}
+.author__letter::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--border-strong);
+}
+/* 键盘聚焦到正文区时把聚焦环收进信纸内部（别顶到第二道细框上） */
+.author__letter:focus-visible {
+  outline-offset: -6px;
+  border-radius: 12px;
+}
+/* ---------- 落款 ---------- */
+.author__sign {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  padding: 18px 6px 0;
+  font-family: var(--font-display);
+}
+.author__sign-name {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--text-main);
+}
+.author__sign-tip {
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+/* =====================================================================
+ * 响应式细节
+ * ===================================================================== */
+/* 投稿表单列固定 680px 居中，卡片内边距之外两侧的留白才是仪表的“车位”
+   （1240px 视口时约 194px，仪表宽约 138px → 间隙 34px）。
+   再窄就会压到「歌手 / 乐队」输入框，于是降级成表单上方一条横排信息条：
+   标签 / 数字 / 明细 · · · 兑换按钮。 */
+@media (max-width: 1240px) {
+  .submit__votes {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 12px;
+    margin-bottom: 18px;
+    text-align: left;
+  }
+  .submit__votes-num strong {
+    font-size: 20px;
+  }
+  .submit__votes-btn {
+    margin-top: 0;
+    margin-left: auto; /* 一行放得下时按钮贴右；换行后仍留在右端 */
+  }
+}
+@media (max-width: 980px) {
+  .submit__card {
+    padding: 28px;
+  }
+}
+@media (max-width: 620px) {
+  .section {
+    padding-top: 64px;
+  }
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+  .navbar__title {
+    font-size: 16px;
+  }
+  .navbar__subtitle {
+    display: none;
+  }
+  .hero {
+    padding-top: calc(var(--nav-h) + 34px);
+  }
+  .btn--lg {
+    padding: 13px 22px;
+    font-size: 15px;
+  }
+  /* 作者的话信笺：窄屏收一档内边距 / 字号，引号水印让开一侧 */
+  .author {
+    padding: 14px;
+  }
+  .author__card {
+    max-height: 88svh;
+    padding: 26px 20px 20px;
+  }
+  .author__letter {
+    font-size: 15px;
+    line-height: 1.95;
+  }
+  .author__letter p:first-child::first-letter {
+    font-size: 44px;
+  }
+  .author__card::after {
+    right: 34px;
+    font-size: 84px;
+  }
+  .submit__card {
+    padding: 22px 18px;
+  }
+  /* 剩余票数信息条：窄屏收一档内边距，允许明细与按钮各自换行 */
+  .submit__votes {
+    padding: 10px 12px;
+    margin-bottom: 14px;
+  }
+}
+/* =====================================================================
+ * 移动端专项（≤768px）—— 手机扫码访问的主场景
+ *   微信内置浏览器 / iOS / Android 触摸屏：小屏自适应排版 · 单行横滑
+ *   · 全面屏安全区 · 长按手势不被系统抢走
+ *   米白奶油底 / 毛玻璃 / 高级蓝的视觉基调一律不动，只调「排版 + 手势」。
+ * ===================================================================== */
+/* ---------- 1. 页面容器：满宽自适应 + 左右 16px 安全边距 ----------
+   桌面端是 width: min(1240px, 92%)，手机上 92% 会在两侧留下不等宽的碎片留白；
+   改成「满宽 − 左右 16px」，区块 / 首屏 / 导航栏左右全部对齐同一条线。 */
+@media (max-width: 768px) {
+  .section {
+    width: 100%;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .hero {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .navbar__inner {
+    width: calc(100% - 32px);
+  }
+  /* 投稿表单：歌名 / 歌手两个输入框从左右并排转为上下堆叠（响应式流式布局），
+     输入框变整宽，拇指点选更准，窄屏下也不会被压成一条缝 */
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+  /* 页脚：长文案在窄屏自动换行，左右同样留出 16px */
+  .footer__bar {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
+
+/* ---------- 2. 榜单歌曲条目：手机上更紧凑 ----------
+   歌名 / 歌手本身已经是 nowrap + ellipsis + min-width: 0（长歌名只会显示省略号，
+   不会把右侧的长按投票按钮挤出屏幕），这里把两侧固定宽度再收一档，
+   让 320px 级别的窄屏也能多露出几个字的歌名。 */
+@media (max-width: 400px) {
+  .song-card {
+    gap: 8px;
+    padding: 10px;
+  }
+  .song-card__title {
+    font-size: 14.5px;
+  }
+  .song-card__votes {
+    min-width: 56px;
+  }
+  .hold-button.vote-hold {
+    padding: 0 12px;
+  }
+}
+
+/* ---------- 3. 全面屏安全区（iPhone 黑条 / home indicator） ----------
+   env(safe-area-inset-bottom, 16px)：支持 env() 的浏览器取真实安全区
+   （没有黑条时为 0，桌面端完全不受影响），不支持的老内核按 16px 兜底 —— 
+   两种情况都不会让内容压在系统手势条上。 */
+.footer__bar {
+  padding-bottom: calc(18px + env(safe-area-inset-bottom, 16px));
+}
+.toast-stack {
+  bottom: calc(26px + env(safe-area-inset-bottom, 16px));
+}
+.hero__scroll-hint {
+  bottom: calc(22px + env(safe-area-inset-bottom, 16px));
+}
+/* 全屏浮层（兑换投票次数 / 作者的话）：卡片四周不贴边、底部让开黑条 */
+.redeem,
+.author {
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 16px));
+}
+@media (max-width: 430px) {
+  .redeem,
+  .author {
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 16px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+
+
+
+
+
+
+

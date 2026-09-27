@@ -1,0 +1,32 @@
+/* =====================================================================
+ * LoadingScreen —— 首屏加载界面
+ *   纯白满屏 + 一个「克莱因蓝」的折纸文字 loading（动画本体来自 start-carton）
+ *   层级：Toast 120 < 兑换浮层 130 < 加载界面 200 —— 加载期间谁也盖不过它
+ * ===================================================================== */
+.loading-screen {
+  /* 高级蓝：克莱因蓝（#002FA7）提亮后的皇家蓝 —— 纯白底上唯一的色点 */
+  --loading-blue: #1d3fd6;
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  background: #ffffff;
+  transition:
+    opacity var(--loading-exit, 360ms) ease,
+    visibility var(--loading-exit, 360ms) linear;
+}
+/* 假判定结束：淡出 + 不可点（移除由 React 卸载完成） */
+.loading-screen--leaving {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* loading 字样：只喂 CSS 变量给 start-carton 的折叠文字动画，不覆盖它的结构样式 */
+.loading-screen__text {
+  --fold-text-color: var(--loading-blue);
+  --fold-text-font-size: clamp(34px, 8vw, 62px);
+  --fold-text-font-weight: 800;
+  --fold-perspective: 760px;
+}

@@ -1,0 +1,273 @@
+/* =====================================================================
+   全局样式：设计令牌 + Reset
+   主题：「轻奢暖白 · 瑞士艺术馆 Warm Cream Minimalist」
+   底色 = 暖杏燕麦白 #F7F5F0 + 象牙微渐变；墨色文字 #1A1D20 / #6E7681；
+   点缀 = 高级蓝 #1D3FD6（与首屏加载界面 loading 文字同色）· 晨曦电波蓝 #3F7FE0；
+   质感 = 多层复合软阴影 · 极细暖灰边框 · 白玻璃卡片 · 点阵网格 · 弥散光晕
+   说明：本项目不依赖任何第三方 UI/动效库，全部为原生 CSS。
+
+   ⚠️ 改色说明（暖色 → 高级蓝）
+     原本的「落日珊瑚 #E06D53」与「校徽奶杏金 / 黄铜金 #A9743A」两套暖色，
+     已统一替换为高级蓝体系：主色 #1D3FD6（= LoadingScreen 的 --loading-blue），
+     次级色 #3A63EA（亮一档，用来保留「主行动点 / 次级徽章」的层级差）。
+     为了不改动任何组件与调用方，令牌名（--grad-gold / --ink-on-gold /
+     --ambient-coral / --ambient-gold 等）保持原样，只替换其颜色值 ——
+     全站颜色依然只有这一处入口，改基色即整站联动。
+   ===================================================================== */
+:root {
+  color-scheme: light;
+
+  /* ---------------------------------------------------------------
+     一、基色令牌（唯一改色入口，其余令牌均由它们派生）
+     --------------------------------------------------------------- */
+
+  /* 1.1 底色层：暖杏燕麦白 + 极淡象牙灰微渐变（彻底告别纯黑与死白） */
+  --cream-base: #f7f5f0;
+  --cream-light: #fbf9f6;
+  --cream-deep: #f3efea;
+  --paper: #ffffff;
+  --bg-base-gradient: linear-gradient(165deg, var(--cream-light) 0%, var(--cream-deep) 100%);
+
+  /* 1.2 墨色文字层：玄武岩深灰黑 → 高级中灰（温润不扎眼） */
+  --ink-strong: #1a1d20;
+  --ink-body: #6e7681;
+  --ink-soft: #9aa1aa;
+  --ink-on-accent: #ffffff;
+  --ink-on-gold: #ffffff; /* 原「金底深棕字」→ 现「蓝底白字」（.btn--gold 已经是高级蓝渐变） */
+
+  /* 1.3 精密极细边框（拒绝生硬黑框） */
+  --hairline: rgba(220, 215, 205, 0.7);
+  --hairline-strong: rgba(205, 198, 185, 0.85);
+  --hairline-active: rgba(29, 63, 214, 0.4); /* 原落日珊瑚描边 → 高级蓝描边 */
+  --hairline-on-accent: rgba(255, 255, 255, 0.32);
+
+  /* 1.4 卡片玻璃：纯净白底 + 轻微磨砂 */
+  --card-surface: rgba(255, 255, 255, 0.85);
+  --card-surface-hover: rgba(255, 255, 255, 0.96);
+
+  /* 1.5 品牌强调色（原「校徽三色体系」的暖色两档已换成高级蓝两档） */
+  --accent-primary: #1d3fd6; /* 高级蓝（克莱因蓝）：主按钮 / 投票按钮 / 高光行动点 —— 与首屏 loading 文字同色 */
+  --accent-primary-hover: #1631b0; /* 高级蓝加深：浅底 hover 与强调文字（原珊瑚加深） */
+  --accent-secondary: #3a63ea; /* 高级蓝提亮一档：勋章标签 / 票数 / 次级行动点（原校徽奶杏金 → 黄铜金） */
+  --accent-blue: #3f7fe0; /* 晨曦电波蓝：全局聚焦环 / 搜索框与输入框聚焦光圈 / 校验中状态（原本就是冷色，保持不变） */
+  --accent-green: #2f7a63; /* 校园林荫薄荷：成功态 / 已投票 */
+  --accent-pink: #ff9ec4; /* 樱花玫瑰粉：兑换验证码输入后已落位数字的填充块（原墨黑，字色随之转深墨保证对比度） */
+
+  /* 1.6 阴影：多层复合软阴影（轻奢级悬浮感） */
+  --shadow-card:
+    0 4px 6px -1px rgba(0, 0, 0, 0.03),
+    0 20px 25px -5px rgba(0, 0, 0, 0.05);
+  --shadow-card-hover:
+    0 6px 10px -2px rgba(0, 0, 0, 0.04),
+    0 30px 40px -8px rgba(0, 0, 0, 0.09);
+  --shadow-float:
+    0 8px 14px -4px rgba(0, 0, 0, 0.05),
+    0 32px 48px -12px rgba(0, 0, 0, 0.1);
+  --shadow-photo: 0 30px 60px -20px rgba(58, 46, 36, 0.3);
+  --shadow-soft: rgba(58, 46, 36, 0.16);
+  --shadow-halo: rgba(251, 249, 246, 0.9);
+
+  /* 1.7 背景氛围：点阵网格（Dot Grid）+ 弥散光晕（Ambient Light） */
+  --dot-color: #1a1d20;
+  --dot-gap: 22px;
+  --dot-opacity: 0.04;
+  --ambient-coral: rgba(29, 63, 214, 0.1); /* 首屏弥散光晕：原校徽淡珊瑚粉 → 高级蓝淡晕 */
+  --ambient-blue: rgba(91, 156, 246, 0.06);
+  --ambient-gold: rgba(58, 99, 234, 0.09); /* 页脚弥散光晕：原奶杏金余晖 → 高级蓝淡晕 */
+
+  /* 1.8 滑动叙事（Scrollytelling）：交错淡入的位移/时长/曲线 */
+  --reveal-distance: 22px;
+  --reveal-duration: 0.7s;
+  --reveal-ease: cubic-bezier(0.22, 0.75, 0.28, 1);
+
+  /* ---------------------------------------------------------------
+     二、语义令牌（组件层只引用这一层；全部由基色派生，改基色即整站联动）
+     --------------------------------------------------------------- */
+
+  /* 2.1 文字层级：玄武岩深灰黑主标题 / 高级中灰正文 */
+  --text-main: var(--ink-strong);
+  --text-secondary: var(--ink-body);
+  --text-muted: var(--ink-soft);
+  --text-on-accent: var(--ink-on-accent); /* 高级蓝按钮上的白字 */
+  --text-on-gold: var(--ink-on-gold); /* 高级蓝渐变按钮上的白字（原金底深棕字） */
+
+  /* 2.2 背景与浮层：浅色主题下“更深一层”= 更暖 / 更灰，而非更黑 */
+  --bg-surface: var(--paper);
+  --bg-card: var(--card-surface);
+  --bg-card-hover: var(--card-surface-hover);
+  --bg-inset: rgba(255, 255, 255, 0.78); /* 封面上的白玻璃小徽章 / 表单内嵌 */
+  --bg-scrim: rgba(251, 249, 246, 0.82); /* 吸顶导航 / 图片上的暖白遮罩 */
+  --bg-overlay: rgba(255, 255, 255, 0.94); /* 下拉菜单 / 页脚 / Toast 纸面 */
+  --bg-veil: rgba(251, 249, 246, 0.5); /* 封面底部象牙雾化 */
+  --bg-wash: rgba(26, 29, 32, 0.035); /* 极弱墨色洗涤：胶囊 / 次级面板 */
+
+  /* 2.3 边框：精密极细暖灰 */
+  --border-subtle: var(--hairline);
+  --border-strong: var(--hairline-strong);
+  --border-active: var(--hairline-active); /* hover 时高亮为柔和高级蓝（原落日珊瑚） */
+  --border-on-accent: var(--hairline-on-accent); /* 高级蓝按钮内侧高光描边 */
+
+  /* 2.4 中性磨砂：浅色主题改为墨色微透明，保持“弱一层”的层级关系 */
+  --surface-veil: var(--bg-wash);
+  --surface-veil-strong: rgba(26, 29, 32, 0.07);
+  --sheen: rgba(255, 255, 255, 0.5); /* 封面高光 / 反光条 */
+  --watermark: rgba(26, 29, 32, 0.06); /* 超大号装饰数字水印 */
+
+  /* 2.5 强调色的浅底 / 强边 / 光晕（值已全部由暖色换为高级蓝） */
+  --accent-primary-soft: rgba(29, 63, 214, 0.1);
+  --accent-primary-strong: rgba(29, 63, 214, 0.4);
+  --accent-primary-glow: rgba(29, 63, 214, 0.22);
+  --accent-secondary-soft: rgba(58, 99, 234, 0.1);
+  --accent-secondary-strong: rgba(58, 99, 234, 0.35);
+  --accent-secondary-glow: rgba(58, 99, 234, 0.2);
+  --accent-blue-soft: rgba(91, 156, 246, 0.1);
+  --accent-blue-strong: rgba(91, 156, 246, 0.42);
+  --accent-blue-glow: rgba(91, 156, 246, 0.18);
+  --accent-green-strong: rgba(47, 122, 99, 0.35);
+  --accent-green-soft: rgba(47, 122, 99, 0.12);
+
+  /* 2.6 品牌渐变 */
+  --grad-primary: linear-gradient(120deg, var(--accent-primary), var(--accent-primary-hover));
+  --grad-primary-soft: linear-gradient(135deg, var(--accent-primary-soft), var(--accent-secondary-soft));
+  --grad-cool-soft: linear-gradient(135deg, var(--accent-blue-soft), var(--accent-primary-soft));
+  --grad-gold: linear-gradient(120deg, var(--accent-secondary) 0%, var(--accent-primary) 100%);
+  /* ↑ 令牌名保留（架构不变），值已由「奶杏金渐变」换成「高级蓝渐变」 */
+
+  /* 2.7 发光特效：微弱发光软阴影（主按钮 / 投票按钮共用） */
+  --glow-primary:
+    0 8px 20px -8px var(--accent-primary-strong),
+    0 3px 10px -4px var(--accent-primary-glow);
+  --glow-primary-hover:
+    0 14px 28px -8px var(--accent-primary-strong),
+    0 5px 14px -4px var(--accent-primary-glow);
+
+  /* 2.8 毛玻璃强度（卡片 / 浮层统一引用） */
+  --glass-blur: 16px;
+
+  /* 圆角 */
+  --radius-sm: 12px;
+  --radius: 18px;
+  --radius-lg: 26px;
+
+  /* 顶部导航高度 */
+  --nav-h: 72px;
+
+  /* 字体 */
+  --font:
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC',
+    system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  /* 展示字体（衬线）：专辑名 / 编号等需要「高级感」的地方。
+     全部为系统自带衬线 —— 西文走 Didot / Bodoni / Georgia / Times，
+     中文由浏览器逐字回落到宋体系（华文中宋 → 宋体），零网络依赖。
+     想换成网络字体（如 Playfair Display + 思源宋体），只改这一个令牌即可。 */
+  --font-display:
+    'Playfair Display', 'Didot', 'Bodoni MT', 'Baskerville', 'Georgia',
+    'Times New Roman', 'Songti SC', 'STSong', 'Source Han Serif SC',
+    'Noto Serif SC', 'STZhongsong', '华文中宋', SimSun, serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  /* 移动端：微信内置浏览器 / iOS 横竖屏切换时不自动放大字号（版面不跳、不撑破卡片） */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100vh;
+  overflow-x: hidden;
+  font-family: var(--font);
+  color: var(--text-main);
+  line-height: 1.7; /* 瑞士排版：温润行高，长文不压眼 */
+  background-color: var(--cream-base);
+  background-image: var(--bg-base-gradient);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/* 移动端点按即响应（微信内置浏览器 / iOS · Android 触摸屏）：
+   干掉双击缩放与 300ms 点击延迟，按钮 / 胶囊 / 输入框的按压反馈不再「黏手」。
+   只落在交互元素上 —— 容器与卡片仍交给浏览器默认处理，
+   需要自定义手势的组件（如 components/bottom2 的长按按钮）再单独声明自己的
+   touch-action，不会被这条影响。 */
+button,
+a,
+input,
+select,
+textarea,
+label {
+  touch-action: manipulation;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+ul,
+ol {
+  list-style: none;
+}
+
+::selection {
+  background: rgba(29, 63, 214, 0.18); /* 高级蓝浅底 + 墨色字，浅色主题下更温润 */
+  color: var(--text-main);
+}
+
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--cream-deep);
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--accent-primary), var(--accent-secondary));
+  border-radius: 8px;
+  border: 2px solid var(--cream-deep);
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+  border-radius: 6px;
+}

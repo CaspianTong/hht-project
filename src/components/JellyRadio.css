@@ -1,0 +1,135 @@
+/* =====================================================================
+ * JellyRadio —— 果冻质感单选组（React Bits 组件 · JavaScript + CSS 变体）
+ *
+ * 上游样式完整保留，只把 .jelly-radio 上的 4 个默认配色换成 index.css 的
+ * 设计令牌（暖白轻奢主题的对应关系）：
+ *    --jr-chip        未选中 chip 表面  = 白玻璃 --bg-inset
+ *    --jr-active      选中 chip 表面    = 墨色   --ink-strong（组件签名式高对比）
+ *    --jr-text        未选中文字 / hover 染色 = --text-secondary
+ *    --jr-active-text 选中文字          = --text-on-accent
+ *
+ * 注意：这些只是 CSS 兜底值 —— JSX 会把 props 写成行内 --jr-* 自定义属性，
+ * 优先级更高。改色改 props（或改这里的令牌）即可，组件逻辑一行都不用动。
+ * ===================================================================== */
+.jelly-radio {
+  --jr-chip: var(--bg-inset);
+  --jr-active: var(--ink-strong);
+  --jr-text: var(--text-secondary);
+  --jr-active-text: var(--text-on-accent);
+  --jr-gap: 8px;
+  --jr-radius: 18px;
+  --jr-h: 36px;
+  --jr-font: 13px;
+  --jr-px: 16px;
+  --jr-pad-x: 16px;
+  --jr-pad-y: 6px;
+  --jr-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+  display: inline-flex;
+  align-items: center;
+  gap: var(--jr-gap);
+  padding: var(--jr-pad-y) var(--jr-pad-x);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.jelly-radio[data-disabled] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.jelly-radio__chip {
+  position: relative;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  outline: none;
+  transform-origin: 50% 50%;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.jelly-radio__chip[data-on='true'] {
+  cursor: default;
+}
+
+.jelly-radio:not([data-disabled]) .jelly-radio__chip:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.jelly-radio__skin {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
+  height: var(--jr-h);
+  padding: 0 var(--jr-px);
+  border-radius: var(--jr-radius);
+  overflow: hidden;
+  background: var(--jr-chip);
+  color: var(--jr-text);
+  font-size: var(--jr-font);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  transition:
+    transform 160ms var(--jr-ease-out),
+    background-color 200ms ease,
+    color 200ms ease;
+}
+
+.jelly-radio__skin::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--jr-text);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .jelly-radio__chip[data-on='false']:not(:disabled):hover .jelly-radio__skin::before {
+    opacity: 0.11;
+  }
+}
+
+.jelly-radio__chip:active .jelly-radio__skin {
+  transform: scale(0.97);
+}
+
+.jelly-radio__chip[data-on='true'] .jelly-radio__skin {
+  background: var(--jr-active);
+  color: var(--jr-active-text);
+}
+
+.jelly-radio__icon {
+  display: inline-flex;
+}
+
+.jelly-radio__label {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* 键盘焦点环画在 pill 皮肤上（全局 button:focus-visible 会给直角环，破坏胶囊外形） */
+.jelly-radio .jelly-radio__chip:focus-visible {
+  outline: none;
+}
+.jelly-radio .jelly-radio__chip:focus-visible .jelly-radio__skin {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jelly-radio__chip:active .jelly-radio__skin {
+    transform: none;
+  }
+}
