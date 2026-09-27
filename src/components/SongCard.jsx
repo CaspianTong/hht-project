@@ -73,6 +73,19 @@ export default function SongCard({ song, index = 0, votesLeft = 0, onVote }) {
   // 卸载时清理 +1 动画定时器
   useEffect(() => () => clearTimeout(burstTimer.current), []);
 
+  /** 长按投票期间掐掉系统快捷菜单（手机端最要命的一环）：
+   *  按住约 0.5 秒后，安卓自带浏览器 / 夸克 / UC 会弹出「问 AI / 复制 / 搜索 / 识图」浮层，
+   *  iOS 会弹「拷贝 / 查询 / 分享」—— 浮层一起，这份长按手势就被系统抢走，
+   *  进度条当场回弹（用户眼里 = 按到一半突然断掉）。
+   *  preventDefault 掐掉菜单本体；stopPropagation 拦住它继续冒泡到 document
+   *  （部分浏览器会注入脚本，在 document 层监听 contextmenu 弹自己的浮层）。
+   *  按钮内部还有一层原生兜底（bottom2.jsx：非 passive 的 touchstart / touchmove /
+   *  contextmenu / selectstart / dragstart），这里属于第二道闸；长按计时与动画逻辑不受影响。 */
+  const handleContextMenu = e => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
   return (
     <article
       /* ⚠️ className 必须恒定：一旦随投票状态变化，React 会整体重写 class 属性，
@@ -111,11 +124,11 @@ export default function SongCard({ song, index = 0, votesLeft = 0, onVote }) {
         disabled={locked}
         onHold={handleVote}
         /* 手机端长按 2 秒期间，部分安卓 / iOS 浏览器会在达到阈值时弹出默认右键或
-           快捷菜单（iOS 的「拷贝 / 查询 / 分享」、安卓的长按菜单）——
+           快捷菜单（安卓自带浏览器 / 夸克 / UC 的「问 AI / 复制 / 搜索」、iOS 的「拷贝 / 查询 / 分享」）——
            菜单一弹出来，长按手势就被系统抢走、进度条当场回弹。
-           这里连同 CSS 层的 user-select / touch-callout 一起，把它彻底摁住；
-           长按计时逻辑与浪涌动画一行不动。 */
-        onContextMenu={e => e.preventDefault()}
+           JS（本行 + bottom2.jsx 的原生触摸监听）与 CSS（user-select / touch-callout /
+           user-drag / touch-action: none）双层一起摁住；长按计时与浪涌动画一行不动。 */
+        onContextMenu={handleContextMenu}
       >
         {idleLabel}
         {/* 屏幕上只有按钮文案，读屏时补上歌名，免得整页都是同一个「投 TA 一票」 */}

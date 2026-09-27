@@ -226,17 +226,27 @@ export default function HoldButton({
     return () => ro.disconnect();
   }, []);
 
-  /* ---------- 长按期间的触摸锁：手机端体验最关键的一条 ----------
-     CSS 上按钮是 touch-action: manipulation（保留页面滚动、去掉双击缩放与点击延迟），
-     代价是：长按中手指一旦挪动超过浏览器的滚动阈值，浏览器就会接管这份手势并发出
-     pointercancel → 长按进度条瞬间回弹（用户眼里就是「按到一半突然中断 + 页面乱跳」）。
-     解法：长按进行中把这份手势的 touchmove 全部 preventDefault 掉 —— 在滚动真正开始
-     之前就拦下，浏览器就不会开始滚，也就不会 cancel，轻微滑动彻底不影响长按。
-     必须自己用 addEventListener 挂：React 在根节点上的 touchmove 是 passive 的，
-     里面的 preventDefault() 会被忽略（还会在控制台报 warning）。 */
+  /* ---------- 移动端手势锁：手机端体验最关键的一条（原生监听 · 必须非 passive） ----------
+     长按投票 / 长按提交最大的敌人不是按钮本身，而是浏览器把这份触摸「抢走」。三个入口：
+       ① 滚动接管：长按中手指挪动超过阈值 → 浏览器开始滚动并发出 pointercancel
+          → 进度条瞬间回弹（用户眼里就是「按到一半突然中断 + 页面乱跳」）；
+       ② 系统长按菜单：安卓自带浏览器 / 夸克 / UC 在按住约 0.5 秒后弹出
+          「问 AI / 复制 / 搜索 / 识图」浮层，iOS 弹「拷贝 / 查询 / 分享」——
+          浮层的判定入口是 touchstart 的默认行为，必须在这一刻就掐掉（等到 contextmenu 已经晚了）；
+       ③ 选区 / 原生拖拽：部分 X5 内核不看 user-select，只认 selectstart / dragstart。
+     为什么必须用 addEventListener 自己挂：React 19 在根节点上把 touchstart / touchmove / wheel
+     注册成 passive: true，写在这些合成事件里的 preventDefault() 会被浏览器直接忽略
+     （所以 React 的 onTouchStart 顶层拦不住长按菜单），只有原生非 passive 监听才算数。 */
   useLayoutEffect(() => {
     const button = buttonRef.current;
     if (!button) return undefined;
+
+    /* ① 掐掉浏览器对「这次触摸」的默认判定：系统长按识别 / 文本选择 / 放大镜 /
+       国产内核的识图浮层全部止步于此。e.cancelable 为假 = 手势已被浏览器接管，此时不再干预。 */
+    const onTouchStart = e => {
+      if (e.cancelable) e.preventDefault();
+    };
+
     const onTouchMove = e => {
       if (phaseRef.current !== 'holding') return;
       if (e.cancelable) e.preventDefault();
@@ -260,8 +270,27 @@ export default function HoldButton({
       gesture.current.pointerId = null;
       releaseRef.current({ drifted: true });
     };
+    /* ② 右键 / 快捷菜单：preventDefault 掐掉菜单本体（调用方的 onContextMenu 仍会被调用，
+       见下方 JSX）；这里刻意不 stopPropagation —— 传播链留给 React 的合成事件处理，
+       由它统一调用原生 stopPropagation，document 层注入脚本同样收不到。 */
+    const onContextMenu = e => e.preventDefault();
+
+    /* ③ 选区启动 / 原生拖拽：不给内核任何「选中这段文字 / 把按钮拖走」的机会 */
+    const onSelectStart = e => e.preventDefault();
+    const onDragStart = e => e.preventDefault();
+
+    button.addEventListener('touchstart', onTouchStart, { passive: false });
     button.addEventListener('touchmove', onTouchMove, { passive: false });
-    return () => button.removeEventListener('touchmove', onTouchMove);
+    button.addEventListener('contextmenu', onContextMenu);
+    button.addEventListener('selectstart', onSelectStart);
+    button.addEventListener('dragstart', onDragStart);
+    return () => {
+      button.removeEventListener('touchstart', onTouchStart);
+      button.removeEventListener('touchmove', onTouchMove);
+      button.removeEventListener('contextmenu', onContextMenu);
+      button.removeEventListener('selectstart', onSelectStart);
+      button.removeEventListener('dragstart', onDragStart);
+    };
   }, []);
 
   useEffect(() => {
@@ -338,8 +367,14 @@ export default function HoldButton({
       onKeyDown={handleKeyDown}
       onKeyUp={handleKeyUp}
       onContextMenu={e => {
-        /* 长按期间绝不弹系统右键 / 快捷菜单：菜单一冒出来，这份长按手势就废了 */
+        /* 长按期间绝不弹系统右键 / 快捷菜单：菜单一冒出来，这份长按手势就废了。
+           stopPropagation 负责拦住「继续冒泡到 document」这条路 ——
+           部分浏览器会往页面注入脚本，在 document 层监听 contextmenu 弹自己的浮层
+           （国产内核的「问 AI / 复制 / 搜索」就属于这一类）。
+           React 19 的合成事件挂在根容器上，这里的 stopPropagation 会调用原生
+           stopPropagation，因此 document / window 上的监听确实收不到。 */
         e.preventDefault();
+        e.stopPropagation();
         onContextMenu?.(e);
       }}
     >

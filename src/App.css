@@ -951,7 +951,9 @@
      这里随 SongCard 皮肤再声明一道并加 !important：
      iOS Safari / 微信内置浏览器会按内核默认值独立判定 <button> 内文字的可选中性，
      不加显式加急时，长按达标那一刻放大镜与「拷贝 / 查询 / 分享」菜单仍会冒出来。
-     强度只落在选择与菜单上，按钮尺寸 / 配色 / 浪涌动画一律不动。 */
+     强度只落在选择与菜单上，按钮尺寸 / 配色 / 浪涌动画一律不动。
+     （手势锁 touch-action: none 与非 passive 的原生触摸拦截都在 bottom2.css / bottom2.jsx，
+       属于组件级能力，这里不重复声明。） */
   -webkit-user-select: none !important;
   -moz-user-select: none !important;
   -ms-user-select: none !important;

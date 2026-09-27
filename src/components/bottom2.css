@@ -39,7 +39,13 @@
   -ms-user-select: none;
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
+  /* 手势全部交给按钮自己（none = 不滚动、不缩放、不双击放大、不把这次触摸当成系统长按候选）：
+     「按住 2 秒」要求手指落在按钮上的整段触摸都归按钮 —— 任何被浏览器接管的滚动 / 缩放
+     都会以 pointercancel 结束长按。这条与 bottom2.jsx 里的原生非 passive 监听是一套组合：
+     新内核认 touch-action，老内核（X5 / 夸克 / UC）认 touchstart 的 preventDefault，两边都盖住。
+     代价：从按钮上起手的滑动不再带动页面滚动（按钮只有 44px 高的胶囊，可接受）。
+     要换回「可滚动」的手感：这里改回 manipulation，并删掉 bottom2.jsx 里 touchstart 的 preventDefault。 */
+  touch-action: none;
   transition:
     transform 160ms var(--hb-ease-out),
     background-color 160ms ease,
@@ -47,8 +53,9 @@
 }
 
 /* ---------- 移动端长按手势加固（微信内置浏览器 · iOS / Android 触摸屏） ----------
-   按钮本体的 touch-action: manipulation 已经在上面声明（消除双击缩放与 300ms 点击延迟），
-   这里把「不可选中 / 不弹系统菜单 / 不触发系统拖拽」压到按钮与全部子元素上：
+   按钮本体负责「系统不抢手势」：touch-action: none（见上方声明）+ bottom2.jsx 里
+   非 passive 的原生 touchstart / touchmove / contextmenu / selectstart / dragstart 拦截。
+   这里再把「不可选中 / 不弹系统菜单 / 不触发系统拖拽」压到按钮与全部子元素上：
    ① user-select 不会自动继承，只写在按钮上时长按文案仍可能被选中；
    ② iOS 长按文案会顺手弹出「拷贝 / 查询 / 分享」菜单，菜单一冒出来长按手势就被打断；
    ③ 必须带 !important：本组件是「长按 2 秒 + 进度条」的强手势组件，
@@ -144,6 +151,12 @@
   z-index: 2;
   display: grid;
   place-items: center;
+  /* 文字层只是「颜料」，不参与命中测试（pointer-events 可继承，整棵子树一起退出判定）：
+     浏览器 / 国产内核只有在触摸目标落在文字节点上时，才会去算「长按选中这段文字」，
+     然后弹「复制 / 搜索 / 问 AI」浮层；命中目标锁死在按钮本体后，这条路从源头断掉。
+     点按 / 长按行为完全不变 —— 事件本来就应该由按钮本体接手。 */
+  pointer-events: none;
+  user-select: none;
 }
 
 .hold-button__label > span {
@@ -152,6 +165,8 @@
   align-items: center;
   gap: 8px;
   white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
   transition:
     opacity 200ms ease,
     filter 200ms ease;
