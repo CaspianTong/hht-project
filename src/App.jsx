@@ -11,8 +11,8 @@
  *  1. 拉取：supabase.from('songs').select(...).order('votes_count', 降序) → 票数榜
  *  2. 实时：Realtime 监听 songs 表的 UPDATE 事件 → 就地写回票数并重新排序（无刷新）
  *  3. 投票：supabase.rpc('increment_vote', { target_song_id, user_id_str })，
- *          投票人身份 = localStorage 的 shangya_voter_id
- *          （第一次投票时弹一次输入提示登记「班级 + 姓名」，之后不再问）
+ *          投票人身份 = localStorage 的 shangya_voter_id（匿名设备标识，
+ *          首次投票静默生成，不弹任何输入框、不要求登记班级 / 学号）
  *  4. 投稿：先按「歌名 + 歌手」查重（忽略大小写与首尾空格）——
  *          榜上已有 → 不重复插记录，直接转成第 3 条的投票流程给已有歌曲 +1 票；
  *          榜上没有 → supabase.from('songs').insert() 落库（保留原格式大小写），
@@ -23,16 +23,14 @@
  *  songs          全部歌曲（来自 Supabase；票数变动由 Realtime 同步）
  *  songsLoading   首次拉取是否进行中（榜单显示「正在拉取」而不是空态）
  *  songsError     拉取失败的提示文案（榜单显示「重新加载」）
- *  freeVotesUsed  已经花掉的免费票张数（免费票总数 = 参选曲目数）
- *  extraVotes     兑换来的「加投票」张数（与免费票同一个票池）
+ *  extraVotes     可用投票张数（唯一来源 = 兑换码核销，每个码 +5）
  *  toasts         全局轻提示
  *
- * 【派生值】freeVotesLeft = songs.length - freeVotesUsed（还能用的免费票）
- *            votesLeft     = freeVotesLeft + extraVotes —— 票池里只要还有票，
- *                            任何一首歌（包括已经投过的）都能再投，不设上限
- *            → 交给「提交我的音乐」卡片右上角的剩余票数仪表显示
- *            （票池只是本地票闸：真正加票的是数据库存储过程，
- *              而且只在「服务端确认投票成功」之后才扣掉一张）
+ * 【票池】没有免费票：votesLeft = extraVotes —— 只能靠兑换码换票，
+ *        兑多少就有多少，投一张减一张，见底就把投票拦下来引导去兑换。
+ *        → 交给「提交我的音乐」卡片右上角的剩余票数仪表显示
+ *        （票池只是本地票闸：真正加票的是数据库存储过程，
+ *          而且只在「服务端确认投票成功」之后才扣掉一张）
  *
  * 【兑换核销】8 位兑换码已接 Supabase 的 redemption_codes 表：
  *  查 code 且 used = false → 置 used = true + used_at → 再加票（一码一次由数据库兜住）。
@@ -92,39 +90,37 @@ const readVoteResult = (data) => {
 };
 
 /* ---------------- 投票人身份（存储过程参数 user_id_str） ----------------
- * 第一次投票时用一次最简单的输入提示登记「班级 + 姓名」，存进 localStorage 的
- * shangya_voter_id；之后每次投票直接复用，不再打扰。
- * （手动清掉这条记录，下次投票就会重新登记一次。） */
+ * 不再要求投票人登记「班级 + 学号 / 姓名」：首次投票时前端静默生成一个
+ * 匿名设备标识（标准 UUID，不含任何个人信息），存进 localStorage 的
+ * shangya_voter_id；之后每次投票直接复用，全程不弹任何输入框。
+ * 它唯一的用途是喂给存储过程 increment_vote 的 user_id_str 参数
+ * （服务端靠它做去重 / 频次判断），与「谁投的」没有任何关系。
+ * （手动清掉这条记录，下次投票会重新生成一个新的匿名标识。） */
 const VOTER_ID_KEY = 'shangya_voter_id';
 
-/** 读缓存的身份：隐私模式 / 禁用存储时 localStorage 会直接抛错，一律当作没登记 */
-const readVoterId = () => {
+/** 生成匿名设备标识：优先用 crypto.randomUUID，老环境退回时间戳 + 随机串 */
+const createAnonVoterId = () => {
   try {
-    return window.localStorage.getItem(VOTER_ID_KEY) || '';
+    if (window.crypto?.randomUUID) return window.crypto.randomUUID();
   } catch {
-    /* 读不到就当没有，后面会走一次输入提示 */
-    return '';
+    /* 老浏览器没有 randomUUID，走下面的兜底 */
   }
+  return `anon-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 };
 
-/** 取身份：没有就现场问一次；用户点取消或留空 → 返回空串（本次投票作废） */
+/** 取身份：读缓存，没有就静默生成一个并写入 —— 不弹窗、不打断投票，永远返回非空串。
+ *  隐私模式 / 禁用存储（localStorage 抛错）时用本次临时标识，投票照常进行。 */
 const ensureVoterId = () => {
-  const cached = readVoterId();
-  if (cached) return cached;
-
-  const input = window.prompt(
-    '第一次投票先登记一下～\n请输入「班级 + 姓名」（例如：初二3班 王小明）\n登记一次后本机不再询问。',
-  );
-  if (input === null) return '';
-  const id = input.trim();
-  if (!id) return '';
-
   try {
+    const cached = window.localStorage.getItem(VOTER_ID_KEY);
+    if (cached) return cached;
+
+    const id = createAnonVoterId();
     window.localStorage.setItem(VOTER_ID_KEY, id);
+    return id;
   } catch {
-    /* 存不进去也不影响这一次投票，只是下次还得再填一遍 */
+    return createAnonVoterId();
   }
-  return id;
 };
 
 /** 环境变量没配齐时榜单要显示的提示（初始状态与「重新加载」共用同一句话） */
@@ -143,8 +139,6 @@ function App() {
      环境变量没配齐就直接以「未配置」的错误态开屏，免得一直转圈 */
   const [songsLoading, setSongsLoading] = useState(isSupabaseReady);
   const [songsError, setSongsError] = useState(isSupabaseReady ? '' : NOT_READY_HINT);
-  /* freeVotesUsed：已经花掉的免费票张数（免费票总数 = 参选曲目数，花完才动兑换票） */
-  const [freeVotesUsed, setFreeVotesUsed] = useState(0);
   const [query, setQuery] = useState('');
   const [sortBy, setSortBy] = useState('default');
   const [toasts, setToasts] = useState([]);
@@ -280,21 +274,20 @@ function App() {
   }, [songs, query, sortBy]);
 
   /* 票池（「提交我的音乐」卡片右上角仪表的数据源）
-   *  免费票 = 参选曲目数 - 已花掉的免费票（新歌上架自动 +1 张额度）
-   *  兑换票 = 已兑换但还没花掉的张数
-   * 两者相加就是“还能投出的票数”：只要它 > 0，任意歌曲都能继续投，
-   * 同一首歌投几次都行（票池见底才拦），会随投票 / 兑换实时变化。 */
-  const freeVotesLeft = Math.max(0, songs.length - freeVotesUsed);
-  const votesLeft = freeVotesLeft + extraVotes;
+   *  没有免费票：所有票都来自兑换码核销（每个码 +5），兑多少就有多少；
+   *  只要它 > 0，任意歌曲都能继续投，同一首歌投几次都行，
+   *  票池见底才拦（引导去兑换），会随投票 / 兑换实时变化。 */
+  const votesLeft = extraVotes;
 
   /* ---------------- 交互逻辑 ---------------- */
 
   /** 长按投票（实战版）：
    *  1) 票池见底先拦下来（本地票闸：有票才能投，票池空了先兑换）
-   *  2) 身份：localStorage 的 shangya_voter_id；没有就当场提示登记一次「班级 + 姓名」
+   *  2) 身份：localStorage 的 shangya_voter_id（匿名设备标识）；没有就静默生成一个，
+   *     不再弹任何输入框、也不再要求登记「班级 + 学号」
    *  3) supabase.rpc('increment_vote', { target_song_id, user_id_str })：数据库才是唯一权威
    *  4) 只有服务端确认成功（success）才扣票池、才把票数 +1，并按返回的 message 弹 Toast；
-   *     失败 / 取消登记 / 网络异常一律如实提示，绝不假装投票成功。
+   *     失败 / 网络异常一律如实提示，绝不假装投票成功。
    *
    *  返回 Promise<boolean>：这一票是否真的投出去了 —— SongCard 只有拿到 true 才飘 +1，
    *  卡片本身的外观 / 结构 / className 一律不变。
@@ -302,21 +295,18 @@ function App() {
    *  @param id          目标歌曲 id
    *  @param successText 可选：成功时改用这句提示（投稿查重命中「自动转投」时用），
    *                     留空则沿用原来的「投票成功！《歌名》+1 票。」；
-   *                     票池见底 / 身份取消 / 服务端拒绝一律照原样提示，不受它影响。 */
+   *                     票池见底 / 服务端拒绝一律照原样提示，不受它影响。 */
   const handleVote = useCallback(
     async (id, successText = '') => {
       const song = songs.find((s) => String(s.id) === String(id)) ?? null;
 
-      if (freeVotesLeft <= 0 && extraVotes <= 0) {
-        pushToast('投票次数已经用完了，输入 8 位兑换验证码还能继续加投～', 'warn');
+      if (extraVotes <= 0) {
+        pushToast('投票次数已用完～ 输入 8 位兑换码换票后即可继续加投。', 'warn');
         return false;
       }
 
+      /* 匿名设备标识：读缓存或静默生成，永远有值（不再要求登记班级 / 学号，也不会有取消分支） */
       const voterId = ensureVoterId();
-      if (!voterId) {
-        pushToast('没有登记「班级 + 姓名」，本次投票已经取消。', 'info');
-        return false;
-      }
 
       if (!supabase) {
         pushToast('本站还没接上投票数据库（缺少 Supabase 环境变量），暂时投不了票。', 'warn');
@@ -342,9 +332,8 @@ function App() {
         return false;
       }
 
-      /* 服务端记上了才扣票池：先花免费票，免费票花完再动兑换票 */
-      if (freeVotesLeft > 0) setFreeVotesUsed((v) => v + 1);
-      else setExtraVotes((v) => v - 1);
+      /* 服务端记上了才扣票池（票只有一个来源：兑换码换来的票，投一张减一张） */
+      setExtraVotes((v) => v - 1);
 
       /* 票数 +1 先做本地乐观更新：Realtime 的 UPDATE 随后会带来服务端的准确值，
          两者结果一致（有人同时投票时以服务端为准）。
@@ -362,13 +351,13 @@ function App() {
       pushToast(successText || result.message || `投票成功！《${song?.title ?? 'TA'}》+1 票。`);
       return true;
     },
-    [songs, freeVotesLeft, extraVotes, pushToast],
+    [songs, extraVotes, pushToast],
   );
 
   /** 投稿：先按「歌名 + 歌手」查重（忽略大小写与首尾空格），再决定落库还是转投票。
    *
    *  ① 榜上已有这首歌 → 绝不重复插新记录，直接把它转化成一票：
-   *     走 handleVote 那条既有投票流程（票闸 → ensureVoterId() 登记身份 →
+   *     走 handleVote 那条既有投票流程（票闸 → ensureVoterId() 取匿名设备标识 →
    *     rpc('increment_vote') → 扣票池 + 本地 +1），成功后单独说一句
    *     「该歌曲已在榜单中，已自动为您向它投出 1 票！🔥」；
    *     票池见底 / 服务端说「今日票数已达上限」时，按 handleVote 原样提示额度用尽。
@@ -577,19 +566,16 @@ function App() {
             onSortChange={setSortBy}
             onVote={handleVote}
             votesLeft={votesLeft}
-            extraVotes={extraVotes}
             onOpenRedeem={openRedeem}
             loading={songsLoading}
             error={songsError}
             onReload={reloadSongs}
           />
 
-          {/* 提交我的音乐（卡片右上角挂剩余票数仪表：免费票 + 兑换票） */}
+          {/* 提交我的音乐（卡片右上角挂剩余票数仪表：全部来自兑换码） */}
           <SubmitPanel
             onSubmit={handleSubmitSong}
             votesLeft={votesLeft}
-            freeVotesLeft={freeVotesLeft}
-            extraVotes={extraVotes}
             onOpenRedeem={openRedeem}
           />
         </main>

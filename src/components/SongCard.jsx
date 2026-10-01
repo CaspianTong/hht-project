@@ -54,7 +54,7 @@ export default function SongCard({ song, index = 0, votesLeft = 0, onVote }) {
 
   /** 长按满 VOTE_HOLD_MS（由 HoldButton 判定通过）→ 真投票：
    *  onVote 返回「这一票是否真的投出去了」（App 内部已兜住所有异常，不会抛错），
-   *  只有 true 才飘 +1 浮字 —— 取消了登记 / 服务端拒绝 / 网络失败都不该假装成功。
+   *  只有 true 才飘 +1 浮字 —— 服务端拒绝 / 网络失败都不该假装成功。
    *  卡片外观、结构、className 一律不变。 */
   const handleVote = async () => {
     if (locked) return; // 票池见底：双重保险
