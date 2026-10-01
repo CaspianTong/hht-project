@@ -1224,23 +1224,6 @@
   font-weight: 700;
   color: var(--text-secondary);
 }
-.passcode__hint {
-  font-size: 12px;
-  line-height: 1.7;
-  color: var(--text-muted);
-}
-.passcode__demo {
-  padding: 1px 7px;
-  margin: 0 3px;
-  border-radius: 7px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  color: var(--accent-primary-hover);
-  background: var(--surface-veil-strong);
-  border: 1px solid var(--accent-primary-strong);
-}
 .passcode__status {
   font-size: 13px;
   font-weight: 600;
@@ -1576,6 +1559,13 @@
 .redeem .passcode {
   align-items: center;
   text-align: center;
+}
+/* 兑换框下方的联系方式说明：比脚注略亮一档，方便一眼看到求助口径 */
+.redeem__contact {
+  text-align: center;
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: var(--text-secondary);
 }
 .redeem__foot {
   text-align: center;

@@ -10,9 +10,13 @@
  *   2) <Slot /> 渲染期 setState 换字符        → 改为副作用同步
  *      （“清空”时依旧保留上一位字符，等填充动画收干后再消失，观感一致）
  *
+ * 另加一个 opt-in 开关（默认 false，完全不改上游数字输入行为）：
+ *   3) allowLetters —— 开启后接受「数字 + 大小写字母」（兑换码可能是字母数字混合），
+ *      键盘门控 / 粘贴清洗 / 值同步统一走同一个字符过滤器 codeCharsOf()。
+ *
  * props 见 README / 集成说明：length · value · defaultValue · onChange ·
- * onComplete · status · mask · caret · disabled · autoFocus + 一组配色与
- * 尺寸参数（本项目统一传 index.css 的设计令牌，保持暖白轻奢主题一致）。
+ * onComplete · status · mask · caret · disabled · autoFocus · allowLetters +
+ * 一组配色与尺寸参数（本项目统一传 index.css 的设计令牌，保持暖白轻奢主题一致）。
  * ===================================================================== */
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { animate, motion, motionValue, useMotionValue, useMotionValueEvent, useReducedMotion, useTransform } from 'motion/react';
@@ -32,8 +36,12 @@ const SINK_FADE = 0.6;
 
 const clamp01 = v => Math.min(1, Math.max(0, v));
 const digitsOf = raw => String(raw ?? '').replace(/\D/g, '');
-const toSlots = (raw, n) => {
-  const d = digitsOf(raw).slice(0, n);
+/* 统一字符过滤器：allowLetters=false → 纯数字（上游行为）；
+   true → 保留 0-9 / A-Z / a-z（大小写原样保留），空格 / 标点 / 中文一律剔除 */
+const codeCharsOf = (raw, allowLetters) =>
+  allowLetters ? String(raw ?? '').replace(/[^0-9A-Za-z]/g, '') : digitsOf(raw);
+const toSlots = (raw, n, allowLetters = false) => {
+  const d = codeCharsOf(raw, allowLetters).slice(0, n);
   return Array.from({ length: n }, (_, i) => d[i] ?? '');
 };
 const firstEmptyOf = slots => {
@@ -44,6 +52,7 @@ const isFull = slots => slots.every(Boolean);
 
 export default function CodeSlots({
   length = 6,
+  allowLetters = false,
   value,
   defaultValue = '',
   onChange,
@@ -72,7 +81,7 @@ export default function CodeSlots({
   const reduce = useReducedMotion();
   const inputRef = useRef(null);
   const rowRef = useRef(null);
-  const [slots, setSlots] = useState(() => toSlots(value ?? defaultValue, length));
+  const [slots, setSlots] = useState(() => toSlots(value ?? defaultValue, length, allowLetters));
   const [active, setActive] = useState(() => firstEmptyOf(slots));
   const [focused, setFocused] = useState(false);
   const [veiled, setVeiled] = useState(status === 'success');
@@ -84,7 +93,7 @@ export default function CodeSlots({
   const draining = useRef(false);
   const drainTimer = useRef(undefined);
   const statusRef = useRef(status);
-  const emitted = useRef(digitsOf(value ?? defaultValue).slice(0, length));
+  const emitted = useRef(codeCharsOf(value ?? defaultValue, allowLetters).slice(0, length));
   const slotsRef = useRef(slots);
   const live = useRef({ settle, bounce, cascade, reduce });
 
@@ -191,13 +200,13 @@ export default function CodeSlots({
   );
 
   const insert = (raw, from = active) => {
-    const digits = digitsOf(raw);
-    if (!digits) return;
+    const chars = codeCharsOf(raw, allowLetters);
+    if (!chars) return;
     const next = [...slotsRef.current];
     const crossed = [];
     const step = reduce ? 0 : cascade;
     let i = from;
-    for (const ch of digits) {
+    for (const ch of chars) {
       if (i >= length) break;
       next[i] = ch;
       land(i, (i - from) * step);
@@ -226,7 +235,9 @@ export default function CodeSlots({
   const onKeyDown = e => {
     if (isBusy() || e.metaKey || e.ctrlKey || e.altKey) return;
     const k = e.key;
-    if (/^[0-9]$/.test(k)) {
+    /* allowLetters 时把字母也放进来；只认单字符，避免 Shift / Enter 等被误吃 */
+    const typed = allowLetters ? /^[0-9A-Za-z]$/.test(k) : /^[0-9]$/.test(k);
+    if (typed) {
       e.preventDefault();
       insert(k);
     } else if (k === 'Backspace') {
@@ -257,7 +268,7 @@ export default function CodeSlots({
   };
   const onInput = e => {
     if (isBusy()) return;
-    const d = digitsOf(e.target.value);
+    const d = codeCharsOf(e.target.value, allowLetters);
     if (!d) return;
     insert(d, d.length === 1 ? active : 0);
   };
@@ -291,11 +302,11 @@ export default function CodeSlots({
 
   useEffect(() => {
     if (value === undefined) return;
-    const clean = digitsOf(value).slice(0, length);
+    const clean = codeCharsOf(value, allowLetters).slice(0, length);
     if (clean === emitted.current) return;
     emitted.current = clean;
     const prev = slotsRef.current;
-    const next = toSlots(clean, length);
+    const next = toSlots(clean, length, allowLetters);
     const hidden = statusRef.current === 'success';
     const landing = [];
     const leaving = [];
@@ -414,9 +425,12 @@ export default function CodeSlots({
           ref={inputRef}
           className="code-slots__input"
           type="text"
-          inputMode="numeric"
+          inputMode={allowLetters ? 'text' : 'numeric'}
           autoComplete="one-time-code"
-          pattern="[0-9]*"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
+          pattern={allowLetters ? '[0-9A-Za-z]*' : '[0-9]*'}
           value=""
           maxLength={length}
           aria-label={ariaLabel}
@@ -456,7 +470,7 @@ export default function CodeSlots({
         </motion.span>
       </div>
       <span id={`${uid}-count`} className="code-slots__sr" aria-live="polite">
-        {status === 'success' ? 'Code accepted' : `${view.filter(Boolean).length} of ${length} digits entered`}
+        {status === 'success' ? 'Code accepted' : `${view.filter(Boolean).length} of ${length} ${allowLetters ? 'characters' : 'digits'} entered`}
       </span>
     </div>
   );

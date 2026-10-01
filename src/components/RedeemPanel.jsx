@@ -1,9 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  DEMO_VOTE_CODES,
-  VOTES_PER_CODE,
-  VOTE_CODE_LENGTH,
-} from '../data/mockSongs';
+import { VOTES_PER_CODE, VOTE_CODE_LENGTH } from '../data/mockSongs';
 import CodeSlots from './CodeSlots';
 
 /* CodeSlots 配色：全部引用 index.css 设计令牌，与暖白轻奢主题保持同一套语言
@@ -32,8 +28,9 @@ const SLOT_COLORS = {
  *
  * props:
  *  onClose()       关闭卡片（✕ / 点遮罩 / 按 Esc 都会调用）
- *  onRedeem(code)  兑换回调，返回 { ok, reason? }；
- *                  reason = 'invalid' 验证码不存在 / 'used' 该码已经兑换过
+ *  onRedeem(code)  兑换回调（App 侧查 Supabase 的 redemption_codes 表并核销），
+ *                  返回 { ok, reason? }；
+ *                  reason = 'invalid' 兑换码无效或已被核销 / 'error' 网络异常
  */
 function RedeemPanel({ onClose, onRedeem }) {
   /* status : 'idle' | 'error' | 'success' —— 直接喂给 CodeSlots 的 status */
@@ -86,10 +83,10 @@ function RedeemPanel({ onClose, onRedeem }) {
     : status === 'success'
       ? `✅ 兑换成功！投票次数 +${VOTES_PER_CODE}，可以为喜欢的歌继续加投啦`
       : status === 'error'
-        ? reason === 'used'
-          ? '⚠️ 这个兑换码已经用过了（一码一次哦）'
-          : '⚠️ 兑换码不正确，请核对后重新输入'
-        : `输入 ${VOTE_CODE_LENGTH} 位数字后自动兑换`;
+        ? reason === 'error'
+          ? '⚠️ 核销失败，请稍后重试或联系负责人'
+          : '⚠️ 该兑换码无效或已被核销'
+        : `输入 ${VOTE_CODE_LENGTH} 位兑换码后自动兑换`;
 
   return (
     <div className="redeem" role="dialog" aria-modal="true" aria-labelledby="redeem-title">
@@ -122,14 +119,11 @@ function RedeemPanel({ onClose, onRedeem }) {
         <div className={`passcode is-${status}`}>
           <div className="passcode__head">
             <span className="passcode__label">{VOTE_CODE_LENGTH} 位验证码 *</span>
-            <span className="passcode__hint">
-              演示验证码 <code className="passcode__demo">{DEMO_VOTE_CODES[0]}</code>
-              （正式上线由校广播站按班级下发）
-            </span>
           </div>
 
           <CodeSlots
             length={VOTE_CODE_LENGTH}
+            allowLetters
             status={status}
             disabled={checking}
             autoFocus
@@ -150,6 +144,10 @@ function RedeemPanel({ onClose, onRedeem }) {
             {text}
           </p>
         </div>
+
+        <p className="redeem__contact">
+          兑换码由广播站按班级下发；如有疑问请联系负责人微信：[填写你的微信号]
+        </p>
 
         <p className="redeem__foot">
           🎟️ 一码一次 · 兑换后可给任意歌曲继续加投 {VOTES_PER_CODE} 票

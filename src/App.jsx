@@ -25,7 +25,6 @@
  *  songsError     拉取失败的提示文案（榜单显示「重新加载」）
  *  freeVotesUsed  已经花掉的免费票张数（免费票总数 = 参选曲目数）
  *  extraVotes     兑换来的「加投票」张数（与免费票同一个票池）
- *  usedCodes      已用过的 8 位兑换验证码（一码一次）
  *  toasts         全局轻提示
  *
  * 【派生值】freeVotesLeft = songs.length - freeVotesUsed（还能用的免费票）
@@ -35,9 +34,8 @@
  *            （票池只是本地票闸：真正加票的是数据库存储过程，
  *              而且只在「服务端确认投票成功」之后才扣掉一张）
  *
- * 【唯一还没接库的地方】8 位兑换码仍是本地演示码（data/mockSongs.js 的
- *  verifyVoteCode）—— 要接库时把它换成一次表查询 / rpc 即可，
- *  上层的 { ok, reason } 契约不用动。
+ * 【兑换核销】8 位兑换码已接 Supabase 的 redemption_codes 表：
+ *  查 code 且 used = false → 置 used = true + used_at → 再加票（一码一次由数据库兜住）。
  * ===================================================================== */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Navbar from './components/Navbar';
@@ -51,7 +49,7 @@ import RedeemPanel from './components/RedeemPanel';
 import AuthorNote from './components/AuthorNote';
 import Grainient from './components/Grainient';
 import LoadingScreen from './components/LoadingScreen';
-import { VOTES_PER_CODE, verifyVoteCode } from './data/mockSongs';
+import { VOTES_PER_CODE } from './data/mockSongs';
 import { supabase, isSupabaseReady } from './lib/supabase';
 import { bindAnchorScroll } from './utils/smoothScroll';
 import { useScrollProgress } from './utils/reveal';
@@ -153,7 +151,6 @@ function App() {
 
   /* 兑换投票次数：extraVotes = 可用「兑换票」张数；redeemOpen = 浮层开关 */
   const [extraVotes, setExtraVotes] = useState(0);
-  const [usedCodes, setUsedCodes] = useState(() => new Set());
   const [redeemOpen, setRedeemOpen] = useState(false);
 
   /* 作者的话：首屏「✍️ 作者的话」信笺浮层开关（与兑换浮层同一个挂载约定） */
@@ -448,25 +445,55 @@ function App() {
     [handleVote, pushToast],
   );
 
-  /** 兑换投票次数：8 位验证码 → +5 票，同一个码只能兑换一次
-   *  返回 { ok, reason? } 交给 <RedeemPanel /> 决定卡片的成功 / 失败态 */
+  /** 兑换投票次数：8 位兑换码 → +5 票，一码一次
+   *  核销走 Supabase 的 redemption_codes 表（数据库才是唯一权威）：
+   *    ① 按 code 查一条：不存在 / used = true → 无效或已被核销
+   *    ② 置 used = true + used_at = now（带 used = false 条件，防并发重复核销）
+   *    ③ 数据库确认核销成功后才 +5 票，并弹 Toast —— 绝不本地先加
+   *  返回 { ok, reason? } 交给 <RedeemPanel /> 决定卡片的成功 / 失败态：
+   *    reason = 'invalid' 兑换码无效或已被核销 / 'error' 网络或权限异常 */
   const handleRedeem = useCallback(
     async (code) => {
       const key = String(code ?? '').trim();
 
-      if (!(await verifyVoteCode(key))) return { ok: false, reason: 'invalid' };
-      if (usedCodes.has(key)) return { ok: false, reason: 'used' };
+      if (!supabase) {
+        pushToast('兑换服务暂不可用，请稍后再试', 'warn');
+        return { ok: false, reason: 'error' };
+      }
 
-      setUsedCodes((prev) => {
-        const next = new Set(prev);
-        next.add(key);
-        return next;
-      });
-      setExtraVotes((v) => v + VOTES_PER_CODE);
-      pushToast(`🎟️ 兑换成功！投票次数 +${VOTES_PER_CODE}，可以给喜欢的歌继续加投啦`);
-      return { ok: true, added: VOTES_PER_CODE };
+      try {
+        /* ① 查这个码：必须存在且还没被核销过 */
+        const { data, error } = await supabase
+          .from('redemption_codes')
+          .select('code, used')
+          .eq('code', key)
+          .limit(1);
+        if (error) throw error;
+
+        const row = Array.isArray(data) ? data[0] : data;
+        if (!row || row.used) return { ok: false, reason: 'invalid' };
+
+        /* ② 核销：改成已用并记下核销时间；再带一个 used = false 条件，
+              两人同时用同一个码时只有先到的那次能改到 1 行 */
+        const { data: updated, error: updateError } = await supabase
+          .from('redemption_codes')
+          .update({ used: true, used_at: new Date().toISOString() })
+          .eq('code', key)
+          .eq('used', false)
+          .select('code');
+        if (updateError) throw updateError;
+        if (!updated || updated.length === 0) return { ok: false, reason: 'invalid' };
+
+        /* ③ 数据库确认核销成功后才加票 */
+        setExtraVotes((v) => v + VOTES_PER_CODE);
+        pushToast(`🎟️ 兑换成功！投票次数 +${VOTES_PER_CODE}，可以给喜欢的歌继续加投啦`);
+        return { ok: true, added: VOTES_PER_CODE };
+      } catch (err) {
+        pushToast(`兑换失败：${readError(err)}`, 'warn');
+        return { ok: false, reason: 'error' };
+      }
     },
-    [usedCodes, pushToast],
+    [pushToast],
   );
 
   /** 兑换浮层开关（关闭即卸载组件 → 下次打开又是全新状态） */
