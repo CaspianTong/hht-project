@@ -19,8 +19,7 @@ import { useRevealGroup } from '../utils/reveal';
  *  sortBy          'default' | 'votes'
  *  onSortChange(value)
  *  onVote(id)      长按投票 → Promise<boolean>（这一票是否真的投出去了）
- *  votesLeft       票池里还能投出的票数（免费票 + 兑换票）；>0 时每张卡片都能继续投
- *  extraVotes      剩余「兑换票」张数（提示行里单独说明）
+ *  votesLeft       票池里还能投出的票数（全部来自兑换码）；>0 时每张卡片都能继续投
  *  onOpenRedeem()  打开「兑换投票次数」浮层卡片
  *  loading         首次拉取 songs 表是否还在进行中
  *  error           拉取失败的提示文案（空串 = 正常）
@@ -37,7 +36,6 @@ function VotingSection({
   onSortChange,
   onVote,
   votesLeft = 0,
-  extraVotes = 0,
   onOpenRedeem,
   loading = false,
   error = '',
@@ -146,7 +144,7 @@ function VotingSection({
       <p className="voting__tip">
         💡 有票就能投，同一首歌可以反复加投（投票按钮长按 2 秒确认，松手才计票）；票数排名前 3 的歌曲将入选校运会开幕主舞台播放单。
         {votesLeft > 0
-          ? ` 🎫 剩余投票次数 ${votesLeft} 张${extraVotes > 0 ? `（含兑换票 ${extraVotes} 张）` : ''}。`
+          ? ` 🎫 剩余投票次数 ${votesLeft} 张。`
           : ' 🎫 投票次数已用完，兑换后可继续加投。'}
         <button type="button" className="link-btn" onClick={onOpenRedeem}>
           🎟️ 兑换投票次数

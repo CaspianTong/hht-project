@@ -20,20 +20,16 @@ const EMPTY_FORM = {
  *  · 提交按钮：复用榜单卡片那枚长按判定按钮（components/bottom2 的 HoldButton）——
  *    按住 2 秒、高级蓝底上漫过一道白浪，浪峰漫满整条按钮并松手才真的提交；
  *    轻点只回弹、不提交（与「投 TA 一票」完全同一套特效，本站皮肤见 .submit-hold）
- *  · 右上角：剩余票数仪表 .submit__votes —— 免费票 + 兑换票的实时合计，
+ *  · 右上角：剩余票数仪表 .submit__votes —— 全部来自兑换码核销，
  *    每投出一票减 1、兑换成功 +5，归零时按钮变成「去兑换」
  * props:
  *  onSubmit(data)   data = { title, artist }
- *  votesLeft        还能投出的总票数（免费票 + 兑换票）
- *  freeVotesLeft    还能用的免费票（免费票总数 = 参选曲目数，投一票扣一张）
- *  extraVotes       已兑换、还没花掉的票数
+ *  votesLeft        还能投出的票数（唯一来源 = 兑换码，没有免费票）
  *  onOpenRedeem()   点仪表里的兑换按钮 → 打开「兑换投票次数」浮层
  */
 function SubmitPanel({
   onSubmit,
   votesLeft = 0,
-  freeVotesLeft = 0,
-  extraVotes = 0,
   onOpenRedeem,
 }) {
   const [form, setForm] = useState(EMPTY_FORM);
@@ -87,9 +83,7 @@ function SubmitPanel({
             <strong aria-live="polite">{votesLeft}</strong>
             <span>票</span>
           </p>
-          <p className="submit__votes-meta">
-            免费票 {freeVotesLeft} · 兑换票 {extraVotes}
-          </p>
+          <p className="submit__votes-meta">均由兑换码获得</p>
           <button
             type="button"
             className="btn btn--gold submit__votes-btn"
