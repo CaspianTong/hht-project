@@ -566,7 +566,6 @@ function App() {
             onSortChange={setSortBy}
             onVote={handleVote}
             votesLeft={votesLeft}
-            onOpenRedeem={openRedeem}
             loading={songsLoading}
             error={songsError}
             onReload={reloadSongs}
@@ -587,7 +586,7 @@ function App() {
       {/* 全局轻提示 */}
       <Toast toasts={toasts} onDismiss={dismissToast} />
 
-      {/* 兑换投票次数：首屏按钮 / 投票区提示都能唤起（只在打开时挂载，关闭即卸载） */}
+      {/* 兑换投票次数：首屏按钮 / 提交卡片仪表都能唤起（只在打开时挂载，关闭即卸载） */}
       {redeemOpen && <RedeemPanel onClose={closeRedeem} onRedeem={handleRedeem} />}
 
       {/* 作者的话：首屏「✍️ 作者的话」唤起（信笺浮层，同样只在打开时挂载） */}
