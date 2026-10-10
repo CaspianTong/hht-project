@@ -9,8 +9,8 @@ import { PLATFORM_NAME } from '../data/mockSongs';
 const NAV_LINKS = [
   { id: 'home', label: '首页', desc: '赛事氛围与快速入口' },
   { id: 'albums', label: '专辑封面墙', desc: '翻转卡片 · 看参赛专辑' },
-  { id: 'voting', label: '当前热门榜', desc: '实时票数与分类打榜' },
   { id: 'submit', label: '提交我的音乐', desc: '为你班级点一首战歌' },
+  { id: 'voting', label: '当前热门榜', desc: '实时票数与分类打榜' },
 ];
 
 /**

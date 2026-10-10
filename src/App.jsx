@@ -556,6 +556,14 @@ function App() {
           {/* 专辑封面墙：反转卡片（正面专辑名 / 背面封面）—— 原先吸顶滚动主视觉的位置 */}
           <AlbumCovers />
 
+          {/* 提交我的音乐（卡片右上角挂剩余票数仪表：全部来自兑换码）
+              —— 与投票区对调：先投递作品，再进榜单打榜 */}
+          <SubmitPanel
+            onSubmit={handleSubmitSong}
+            votesLeft={votesLeft}
+            onOpenRedeem={openRedeem}
+          />
+
           {/* 投票区：搜索 + 排序 + 精简卡片列表（歌名 / 歌手 / 票数）
               数据来自 Supabase：loading / error 两种状态也一并交给它渲染 */}
           <VotingSection
@@ -569,13 +577,6 @@ function App() {
             loading={songsLoading}
             error={songsError}
             onReload={reloadSongs}
-          />
-
-          {/* 提交我的音乐（卡片右上角挂剩余票数仪表：全部来自兑换码） */}
-          <SubmitPanel
-            onSubmit={handleSubmitSong}
-            votesLeft={votesLeft}
-            onOpenRedeem={openRedeem}
           />
         </main>
 
