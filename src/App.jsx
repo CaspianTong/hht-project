@@ -45,6 +45,7 @@ import Footer from './components/Footer';
 import Toast from './components/Toast';
 import RedeemPanel from './components/RedeemPanel';
 import AuthorNote from './components/AuthorNote';
+import AuthorContact from './components/AuthorContact';
 import Grainient from './components/Grainient';
 import LoadingScreen from './components/LoadingScreen';
 import { VOTES_PER_CODE } from './data/mockSongs';
@@ -150,13 +151,20 @@ function App() {
   /* 作者的话：首屏「✍️ 作者的话」信笺浮层开关（与兑换浮层同一个挂载约定） */
   const [authorOpen, setAuthorOpen] = useState(false);
 
+  /* 作者联系与投喂：加载结束后自动打开，关闭后可再从菜单唤起 */
+  const [contactOpen, setContactOpen] = useState(false);
+
   /* 首屏加载界面开关：现在是「假判定」——LoadingScreen 自己数 1.5 秒，淡出后回调关掉 */
   const [booting, setBooting] = useState(true);
 
   const timerRef = useRef({});
 
   /* ---------------- 首屏加载界面 ---------------- */
-  const finishBoot = useCallback(() => setBooting(false), []);
+  /* 加载结束：先卸载 loading，同时把「作者联系与投喂」卡片直接展示出来 */
+  const finishBoot = useCallback(() => {
+    setBooting(false);
+    setContactOpen(true);
+  }, []);
 
   /* ---------------- Toast ---------------- */
   const dismissToast = useCallback(
@@ -493,6 +501,10 @@ function App() {
   const openAuthor = useCallback(() => setAuthorOpen(true), []);
   const closeAuthor = useCallback(() => setAuthorOpen(false), []);
 
+  /** 作者联系与投喂卡片开关（菜单唤起 / 关闭即卸载） */
+  const openContact = useCallback(() => setContactOpen(true), []);
+  const closeContact = useCallback(() => setContactOpen(false), []);
+
   return (
     <div
       style={{
@@ -543,7 +555,7 @@ function App() {
 
       {/* 2. 上层：交互与内容层 */}
       <div style={{ position: 'relative', zIndex: 1 }}>
-        <Navbar />
+        <Navbar onOpenContact={openContact} />
 
         <main>
           {/* 首屏：氛围主视觉 + 兑换投票次数（浮层卡片）/ 立即进入投票区 / 逛专辑封面墙 / 作者的话 */}
@@ -592,6 +604,9 @@ function App() {
 
       {/* 作者的话：首屏「✍️ 作者的话」唤起（信笺浮层，同样只在打开时挂载） */}
       {authorOpen && <AuthorNote onClose={closeAuthor} />}
+
+      {/* 作者联系与投喂：加载结束后自动展示，关闭后可从菜单再次打开 */}
+      {contactOpen && <AuthorContact onClose={closeContact} />}
 
       {/* 首屏加载界面：纯白底 + 克莱因蓝的折纸文字 loading（1.5 秒假判定 → 淡出 → 卸载）
           层级 200：高过 Toast(120) 与兑换浮层(130)，加载期间谁也盖不过它 */}
