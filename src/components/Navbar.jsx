@@ -5,8 +5,8 @@ import { PLATFORM_NAME } from '../data/mockSongs';
  * 说明：① 菜单项原先各配了一枚彩色 emoji 图标方块，按需求已全部去掉 ——
  *         只保留「标题 + 描述」两行文字，菜单更干净，也少一层视觉噪音；
  *       ② 原先排在分隔线之下的「我的个人网站」外链条目也已整体移除；
- *       ③ 分隔线之下现在只保留「作者联系与投喂」：它不是锚点，
- *         点击后打开微信二维码卡片（同样不带 emoji）。 */
+ *       ③ 分隔线之下现在只保留「☕ 支持与反馈」：它不是锚点，
+ *         点击后打开交流反馈 / 投喂站长的弹窗。 */
 const NAV_LINKS = [
   { id: 'home', label: '首页', desc: '赛事氛围与快速入口' },
   { id: 'albums', label: '专辑封面墙', desc: '翻转卡片 · 看参赛专辑' },
@@ -18,13 +18,13 @@ const NAV_LINKS = [
  * Navbar —— 吸顶毛玻璃导航
  * - 左：品牌 Logo（火焰 SVG）+ 平台名
  * - 右：汉堡按钮，点击展开/收起下拉菜单
- * - 菜单末尾：作者联系与投喂（打开微信二维码卡片）
+ * - 菜单末尾：☕ 支持与反馈（打开交流 / 投喂弹窗）
  * - 点击菜单项 / 点击外部 / 按 Esc 自动收起
  *
  * props:
- *  onOpenContact() 打开「作者联系与投喂」卡片
+ *  onOpenSponsor() 打开「☕ 支持与反馈」弹窗（交流反馈 / 投喂站长）
  */
-function Navbar({ onOpenContact }) {
+function Navbar({ onOpenSponsor }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
 
@@ -121,12 +121,12 @@ function Navbar({ onOpenContact }) {
                 className="dropdown__link dropdown__link--action"
                 onClick={() => {
                   close();
-                  onOpenContact?.();
+                  onOpenSponsor?.();
                 }}
               >
                 <span className="dropdown__meta">
-                  <strong>作者联系与投喂</strong>
-                  <small>加微信 · 兑换码 · 项目合作</small>
+                  <strong>☕ 支持与反馈</strong>
+                  <small>交流反馈 · 请站长喝瓶可乐</small>
                 </span>
               </button>
             </nav>

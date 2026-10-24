@@ -472,7 +472,7 @@
 .dropdown__link:hover {
   background: var(--surface-veil-strong);
 }
-/* 菜单末尾的「作者联系与投喂」：原生 button 也要保持与锚点项一致 */
+/* 菜单末尾的「☕ 支持与反馈」：原生 button 也要保持与锚点项一致 */
 .dropdown__divider {
   display: block;
   height: 1px;
@@ -1390,6 +1390,29 @@
 .footer__bar p {
   margin: 0;
 }
+/* 页脚常驻入口：轻量胶囊，不抢版权行的视线 */
+.footer__support {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--accent-primary);
+  background: var(--accent-primary-soft);
+  border: 1px solid transparent;
+  transition:
+    color 180ms ease,
+    background-color 180ms ease,
+    border-color 180ms ease;
+}
+.footer__support:hover {
+  background: var(--accent-primary-soft);
+  border-color: var(--accent-primary-strong);
+}
+.footer__support:focus-visible {
+  border-radius: 999px; /* 别被全局按钮聚焦环切成方角 */
+}
 /* =====================================================================
  * Toast —— 全局轻提示
  * ===================================================================== */
@@ -1407,7 +1430,7 @@
 }
 .toast {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   padding: 12px 12px 12px 14px;
   border-radius: 16px;
@@ -1429,17 +1452,56 @@
   border-color: var(--accent-secondary-strong);
 }
 .toast__icon {
+  margin-top: 1px;
   font-size: 20px;
   flex: 0 0 auto;
 }
-.toast__text {
+/* 文案 + 可选动作链接：两行结构，动作不挤占正文宽度 */
+.toast__body {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.toast__text {
   font-size: 14px;
   font-weight: 600;
+  line-height: 1.55;
   color: var(--text-main);
+}
+.toast__action {
+  align-self: flex-start;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 4px;
+  padding: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  text-align: left;
+  background: none;
+  border: none;
+}
+.toast__action-lead {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.toast__action-link {
+  color: var(--accent-primary);
+  font-weight: 800;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--accent-primary-strong);
+  transition: color 180ms ease;
+}
+.toast__action:hover .toast__action-link {
+  color: var(--accent-primary-hover);
 }
 .toast__close {
   flex: 0 0 auto;
+  margin-top: -2px;
   padding: 0 6px;
   border-radius: 10px;
   font-size: 20px;
@@ -1788,327 +1850,6 @@
 }
 
 /* =====================================================================
- * 作者联系与投喂 —— 加载结束后自动展示的微信二维码卡片
- *   · 卡片沿用暖白信笺质感；二维码放进微信绿气泡框 + 微信图标徽章
- *   · 关闭按钮固定在卡片下方（不随卡片内容滚动）
- *   · 层级与兑换 / 作者的话一致：130
- * ===================================================================== */
-.author-contact {
-  position: fixed;
-  inset: 0;
-  z-index: 130;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-}
-.author-contact__backdrop {
-  position: absolute;
-  inset: 0;
-  background: var(--bg-scrim);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  animation: redeemFade 0.24s ease both;
-}
-.author-contact__dialog {
-  position: relative;
-  z-index: 1;
-  width: min(460px, 100%);
-  max-height: 100%;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-.author-contact__card {
-  position: relative;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 18px;
-  padding: 30px 30px 24px;
-  border-radius: var(--radius-lg);
-  background: linear-gradient(168deg, #ffffff 0%, #fdfbf8 46%, #f7f3ec 100%);
-  border: 1px solid var(--border-strong);
-  box-shadow: var(--shadow-float);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  animation: toastIn 0.32s cubic-bezier(0.22, 0.75, 0.28, 1) both;
-}
-/* 极细滚动条：内容超高时出现，不抢视线 */
-.author-contact__card::-webkit-scrollbar {
-  width: 6px;
-}
-.author-contact__card::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: var(--border-strong);
-}
-.author-contact__head {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  text-align: center;
-}
-.author-contact__eyebrow {
-  font-family: var(--font-display);
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.26em;
-  text-indent: 0.26em;
-  color: var(--accent-secondary);
-}
-.author-contact__title {
-  font-family: var(--font-display);
-  font-size: clamp(23px, 3.4vw, 30px);
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  line-height: 1.3;
-  color: var(--text-main);
-}
-.author-contact__badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 12px;
-  border-radius: 999px;
-  font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: var(--accent-primary);
-  background: var(--accent-primary-soft);
-  border: 1px solid var(--accent-primary-strong);
-}
-.author-contact__body {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  font-size: 13.8px;
-  line-height: 1.95;
-  text-align: justify;
-  color: var(--text-secondary);
-}
-/* 微信图标按钮：二维码藏在图标里，点击后才弹出 */
-.author-contact__wechat {
-  position: relative;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
-  border-radius: 20px;
-  text-align: left;
-  background: linear-gradient(135deg, rgba(7, 193, 96, 0.12), rgba(7, 193, 96, 0.04));
-  border: 1px solid rgba(7, 193, 96, 0.32);
-  box-shadow: 0 12px 26px -24px rgba(7, 193, 96, 0.7);
-  transition:
-    border-color 200ms ease,
-    box-shadow 200ms ease,
-    translate 200ms ease,
-    scale 160ms ease;
-}
-.author-contact__wechat:hover {
-  border-color: rgba(7, 193, 96, 0.55);
-  box-shadow: 0 16px 30px -20px rgba(7, 193, 96, 0.5);
-  translate: 0 -1px;
-}
-.author-contact__wechat:active {
-  scale: 0.99 0.97;
-}
-.author-contact__wechat:focus-visible {
-  border-radius: 20px;
-}
-.author-contact__wechat-icon {
-  flex: 0 0 auto;
-  width: 56px;
-  height: 56px;
-  display: grid;
-  place-items: center;
-  border-radius: 18px;
-  color: #ffffff;
-  background: linear-gradient(145deg, #2ee582 0%, #07c160 58%, #06a854 100%);
-  box-shadow:
-    0 12px 22px -12px rgba(7, 193, 96, 0.75),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35);
-}
-.author-contact__wechat-icon svg {
-  width: 30px;
-  height: 30px;
-}
-.author-contact__wechat-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  line-height: 1.4;
-}
-.author-contact__wechat-text strong {
-  font-size: 15px;
-  color: var(--text-main);
-}
-.author-contact__wechat-text small {
-  font-size: 11.5px;
-  color: var(--text-muted);
-}
-/* 点击图标后弹出的二维码浮层 */
-.author-contact__qr-pop {
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-}
-.author-contact__qr-backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(18, 24, 21, 0.46);
-  -webkit-backdrop-filter: blur(7px);
-  backdrop-filter: blur(7px);
-  animation: redeemFade 0.2s ease both;
-}
-.author-contact__qr-panel {
-  position: relative;
-  z-index: 1;
-  width: min(320px, 100%);
-  max-height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 11px;
-  padding: 24px 22px 20px;
-  border-radius: 24px;
-  background: #ffffff;
-  border: 1px solid rgba(7, 193, 96, 0.28);
-  box-shadow:
-    var(--shadow-float),
-    0 26px 50px -26px rgba(7, 193, 96, 0.45);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  animation: toastIn 0.28s cubic-bezier(0.22, 0.75, 0.28, 1) both;
-}
-.author-contact__qr-badge {
-  width: 48px;
-  height: 48px;
-  display: grid;
-  place-items: center;
-  border-radius: 16px;
-  color: #ffffff;
-  background: linear-gradient(145deg, #2ee582, #07c160);
-  box-shadow: 0 10px 20px -12px rgba(7, 193, 96, 0.75);
-}
-.author-contact__qr-title {
-  font-size: 17px;
-  letter-spacing: 0.04em;
-  color: var(--text-main);
-}
-.author-contact__qr-frame {
-  padding: 9px;
-  border-radius: 18px;
-  background: #ffffff;
-  border: 1px solid var(--border-subtle);
-  box-shadow: 0 14px 30px -22px rgba(20, 40, 30, 0.45);
-}
-.author-contact__qr {
-  width: min(218px, 62vw);
-  aspect-ratio: 1;
-  height: auto;
-  object-fit: contain;
-  border-radius: 10px;
-  background: #ffffff;
-}
-.author-contact__qr-caption {
-  text-align: center;
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--text-muted);
-}
-.author-contact__qr-close {
-  margin-top: 2px;
-  padding: 9px 22px;
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 800;
-  color: var(--text-main);
-  background: var(--bg-wash);
-  border: 1px solid var(--border-subtle);
-  transition:
-    color 200ms ease,
-    background-color 200ms ease;
-}
-.author-contact__qr-close:hover {
-  color: var(--accent-primary);
-  background: var(--surface-veil-strong);
-}
-.author-contact__qr-close:focus-visible {
-  border-radius: 999px;
-}
-.author-contact__hint {
-  text-align: center;
-  font-size: 11.5px;
-  line-height: 1.7;
-  color: var(--text-muted);
-}
-/* 关闭按钮：固定在卡片下方 */
-.author-contact__close {
-  flex: 0 0 auto;
-  align-self: center;
-  min-width: 132px;
-  padding: 11px 30px;
-  border-radius: 999px;
-  font-size: 14px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  color: var(--text-main);
-  background: var(--bg-overlay);
-  border: 1px solid var(--border-strong);
-  box-shadow: var(--shadow-card);
-  transition:
-    color 200ms ease,
-    background-color 200ms ease,
-    border-color 200ms ease,
-    scale 180ms ease;
-}
-.author-contact__close:hover {
-  color: var(--accent-primary);
-  background: var(--surface-veil-strong);
-  border-color: var(--accent-primary-strong);
-}
-.author-contact__close:active {
-  scale: 0.96 0.92;
-}
-.author-contact__close:focus-visible {
-  border-radius: 999px; /* 别被全局按钮聚焦环切成方角 */
-}
-@media (max-width: 620px) {
-  .author-contact__card {
-    gap: 14px;
-    padding: 26px 20px 20px;
-  }
-  .author-contact__qr {
-    width: min(210px, 56vw);
-  }
-}
-@media (max-width: 430px) {
-  .author-contact {
-    padding: 16px;
-    padding-bottom: calc(16px + env(safe-area-inset-bottom, 16px));
-  }
-  .author-contact__card {
-    padding: 24px 18px 20px;
-  }
-  .author-contact__body {
-    font-size: 13.2px;
-    line-height: 1.85;
-  }
-  .author-contact__qr-pop {
-    padding: 16px;
-  }
-  .author-contact__qr {
-    width: min(196px, 58vw);
-  }
-}
-
-/* =====================================================================
  * 响应式细节
  * ===================================================================== */
 /* 投稿表单列固定 680px 居中，卡片内边距之外两侧的留白才是仪表的“车位”
@@ -2283,16 +2024,14 @@
 .hero__scroll-hint {
   bottom: calc(22px + env(safe-area-inset-bottom, 16px));
 }
-/* 全屏浮层（兑换投票次数 / 作者的话 / 作者联系与投喂）：卡片四周不贴边、底部让开黑条 */
+/* 全屏浮层（兑换投票次数 / 作者的话 / 支持与反馈）：卡片四周不贴边、底部让开黑条 */
 .redeem,
-.author,
-.author-contact {
+.author {
   padding-bottom: calc(24px + env(safe-area-inset-bottom, 16px));
 }
 @media (max-width: 430px) {
   .redeem,
-  .author,
-  .author-contact {
+  .author {
     padding-bottom: calc(16px + env(safe-area-inset-bottom, 16px));
   }
 }

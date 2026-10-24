@@ -4,7 +4,7 @@
  * 【本版 = 你的当前页面 + 第一版完整功能 + Supabase 实战】
  *  - 保留：Grainient 颗粒动态背景、Navbar、氛围 Hero、专辑封面墙、
  *          兑换投票次数浮层、搜索 / 排序工具栏、投票成功 Toast、投稿上架、
- *          功能型 Footer、锚点联动、作者的话信笺、首屏加载界面
+ *          功能型 Footer、锚点联动、作者的话信笺、支持与反馈弹窗（交流 / 投喂）、首屏加载界面
  *  - 数据：榜单歌曲全部来自 Supabase 的 songs 表（原先写死的 6 首 Mock 已删除）
  *
  * 【Supabase 数据层】—— 集中在下面几段 useCallback / useEffect 里
@@ -45,7 +45,7 @@ import Footer from './components/Footer';
 import Toast from './components/Toast';
 import RedeemPanel from './components/RedeemPanel';
 import AuthorNote from './components/AuthorNote';
-import AuthorContact from './components/AuthorContact';
+import SponsorModal from './components/SponsorModal';
 import Grainient from './components/Grainient';
 import LoadingScreen from './components/LoadingScreen';
 import { VOTES_PER_CODE } from './data/mockSongs';
@@ -151,8 +151,18 @@ function App() {
   /* 作者的话：首屏「✍️ 作者的话」信笺浮层开关（与兑换浮层同一个挂载约定） */
   const [authorOpen, setAuthorOpen] = useState(false);
 
-  /* 作者联系与投喂：加载结束后自动打开，关闭后可再从菜单唤起 */
-  const [contactOpen, setContactOpen] = useState(false);
+  /* 支持与反馈 / 投喂站长：页脚常驻入口、菜单、投票成功 Toast 都能唤起；
+     sponsorTab 决定默认落在哪个 Tab（feedback 交流 / sponsor 投喂） */
+  const [sponsorOpen, setSponsorOpen] = useState(false);
+  const [sponsorTab, setSponsorTab] = useState('feedback');
+
+  /* 打开弹窗：不传参数默认「交流与反馈」，传 'sponsor' 直达投喂页 */
+  const openSponsor = useCallback((tab = 'feedback') => {
+    setSponsorTab(tab === 'sponsor' ? 'sponsor' : 'feedback');
+    setSponsorOpen(true);
+  }, []);
+
+  const closeSponsor = useCallback(() => setSponsorOpen(false), []);
 
   /* 首屏加载界面开关：现在是「假判定」——LoadingScreen 自己数 1.5 秒，淡出后回调关掉 */
   const [booting, setBooting] = useState(true);
@@ -160,11 +170,12 @@ function App() {
   const timerRef = useRef({});
 
   /* ---------------- 首屏加载界面 ---------------- */
-  /* 加载结束：先卸载 loading，同时把「作者联系与投喂」卡片直接展示出来 */
+  /* 加载结束：先卸载 loading，同时把「☕ 支持与反馈」弹窗展示出来（默认交流与反馈页）；
+     关掉之后仍可从页脚 / 菜单 / 投票成功 Toast 再次打开 */
   const finishBoot = useCallback(() => {
     setBooting(false);
-    setContactOpen(true);
-  }, []);
+    openSponsor('feedback');
+  }, [openSponsor]);
 
   /* ---------------- Toast ---------------- */
   const dismissToast = useCallback(
@@ -172,12 +183,21 @@ function App() {
     [],
   );
 
+  /**
+   * @param text   提示文案
+   * @param tone   success | info | warn
+   * @param action 可选：第二行的动作链接（如投票成功后的「请作者喝瓶可乐 🥤」）
+   *               带动作的提示停留更久，留出点击时间
+   */
   const pushToast = useCallback(
-    (text, tone = 'success') => {
+    (text, tone = 'success', action = null) => {
       const id = Date.now() + Math.random();
-      setToasts((prev) => [...prev, { id, text, tone }]);
+      setToasts((prev) => [...prev, { id, text, tone, action }]);
       if (timerRef.current[id]) clearTimeout(timerRef.current[id]);
-      timerRef.current[id] = setTimeout(() => dismissToast(id), 2800);
+      timerRef.current[id] = setTimeout(
+        () => dismissToast(id),
+        action ? 6500 : 2800,
+      );
     },
     [dismissToast],
   );
@@ -355,11 +375,19 @@ function App() {
         ),
       );
 
-      /* 提示优先级：调用方指定的话（投稿自动转投）> 数据库返回的话（如「投票成功」）> 本地兜底 */
-      pushToast(successText || result.message || `投票成功！《${song?.title ?? 'TA'}》+1 票。`);
+      /* 提示优先级：调用方指定的话（投稿自动转投）> 数据库返回的话（如「投票成功」）> 本地兜底。
+         成功提示带一行柔和彩蛋：点一下直达「投喂站长」Tab */
+      pushToast(
+        successText || result.message || `投票成功！《${song?.title ?? 'TA'}》+1 票。`,
+        'success',
+        {
+          label: '请作者喝瓶可乐 🥤',
+          onClick: () => openSponsor('sponsor'),
+        },
+      );
       return true;
     },
-    [songs, extraVotes, pushToast],
+    [songs, extraVotes, pushToast, openSponsor],
   );
 
   /** 投稿：先按「歌名 + 歌手」查重（忽略大小写与首尾空格），再决定落库还是转投票。
@@ -501,9 +529,7 @@ function App() {
   const openAuthor = useCallback(() => setAuthorOpen(true), []);
   const closeAuthor = useCallback(() => setAuthorOpen(false), []);
 
-  /** 作者联系与投喂卡片开关（菜单唤起 / 关闭即卸载） */
-  const openContact = useCallback(() => setContactOpen(true), []);
-  const closeContact = useCallback(() => setContactOpen(false), []);
+  /* 支持与反馈弹窗的开关已提前到状态区定义（投票成功 Toast 也要用） */
 
   return (
     <div
@@ -555,7 +581,7 @@ function App() {
 
       {/* 2. 上层：交互与内容层 */}
       <div style={{ position: 'relative', zIndex: 1 }}>
-        <Navbar onOpenContact={openContact} />
+        <Navbar onOpenSponsor={openSponsor} />
 
         <main>
           {/* 首屏：氛围主视觉 + 兑换投票次数（浮层卡片）/ 立即进入投票区 / 逛专辑封面墙 / 作者的话 */}
@@ -592,8 +618,8 @@ function App() {
           />
         </main>
 
-        {/* 版权 + 加油标语 */}
-        <Footer />
+        {/* 版权 + 加油标语 + 「☕ 支持与反馈」常驻入口 */}
+        <Footer onOpenSponsor={openSponsor} />
       </div>
 
       {/* 全局轻提示 */}
@@ -605,8 +631,15 @@ function App() {
       {/* 作者的话：首屏「✍️ 作者的话」唤起（信笺浮层，同样只在打开时挂载） */}
       {authorOpen && <AuthorNote onClose={closeAuthor} />}
 
-      {/* 作者联系与投喂：加载结束后自动展示，关闭后可从菜单再次打开 */}
-      {contactOpen && <AuthorContact onClose={closeContact} />}
+      {/* 支持与反馈 / 投喂站长：加载结束后自动展示一次；关闭后仍可从
+          页脚「☕ 支持与反馈」/ 导航菜单 / 投票成功 Toast 再次打开 */}
+      {sponsorOpen && (
+        <SponsorModal
+          key={sponsorTab}
+          initialTab={sponsorTab}
+          onClose={closeSponsor}
+        />
+      )}
 
       {/* 首屏加载界面：纯白底 + 克莱因蓝的折纸文字 loading（1.5 秒假判定 → 淡出 → 卸载）
           层级 200：高过 Toast(120) 与兑换浮层(130)，加载期间谁也盖不过它 */}
