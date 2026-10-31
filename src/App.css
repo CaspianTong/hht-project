@@ -610,6 +610,106 @@
 /* =====================================================================
  * Voting —— 搜索 / 排序工具栏（歌曲分类筛选已移除）
  * ===================================================================== */
+/* ---------- 榜单同步条（搜索栏上方）：轻量提示 + 一键同步 ---------- */
+.board-sync {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin: 26px 0 0;
+}
+.board-sync__hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.board-sync__dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  box-shadow: 0 0 0 3px var(--accent-green-soft);
+}
+.board-sync__dot.is-pulsing {
+  animation: boardSyncPulse 1.1s ease-in-out infinite;
+}
+@keyframes boardSyncPulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.72);
+  }
+}
+.board-sync__btn {
+  flex: 0 0 auto;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 13px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--accent-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+  transition:
+    color 180ms ease,
+    background-color 180ms ease,
+    border-color 180ms ease,
+    opacity 180ms ease,
+    translate 180ms ease,
+    scale 160ms ease;
+}
+.board-sync__btn:hover:not(:disabled) {
+  color: var(--accent-primary-hover);
+  background: var(--bg-card-hover);
+  border-color: var(--accent-primary-strong);
+  translate: 0 -1px;
+}
+.board-sync__btn:active:not(:disabled) {
+  translate: 0 0;
+  scale: 0.97;
+}
+.board-sync__btn:focus-visible {
+  border-radius: 999px; /* 别被全局按钮聚焦环切成方角 */
+}
+.board-sync__btn:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+.board-sync__icon {
+  display: inline-block;
+  font-size: 14px;
+  line-height: 1;
+}
+.board-sync__btn.is-loading .board-sync__icon {
+  animation: boardSyncSpin 0.75s linear infinite;
+}
+@keyframes boardSyncSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* 同步条与搜索工具栏之间收紧一点，避免两段留白叠在一起 */
+.board-sync + .toolbar {
+  margin-top: 12px;
+}
+
 .toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -695,6 +795,15 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 10px;
+  transition:
+    opacity 0.3s ease,
+    filter 0.3s ease;
+}
+/* 手动同步期间：旧榜单保留，只轻微淡出 + 暂停交互；请求结束后平滑淡入新排名 */
+.song-grid--syncing {
+  opacity: 0.55;
+  filter: saturate(0.82);
+  pointer-events: none;
 }
 
 /* 空结果占位 */
@@ -1922,6 +2031,18 @@
 @media (max-width: 620px) {
   .section {
     padding-top: 64px;
+  }
+  .board-sync {
+    margin-top: 22px;
+    gap: 8px 12px;
+  }
+  .board-sync__hint {
+    flex: 1 1 100%;
+    font-size: 12px;
+  }
+  .board-sync__btn {
+    height: 32px;
+    padding: 0 11px;
   }
   .form-row {
     grid-template-columns: 1fr;

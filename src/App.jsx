@@ -22,8 +22,9 @@
  * 【状态中心】
  *  songs          全部歌曲（来自 Supabase；票数变动由 Realtime 同步）
  *  songsLoading   首次拉取是否进行中（榜单显示「正在拉取」而不是空态）
+ *  songsRefreshing 手动同步是否进行中（只影响按钮 Loading 与榜单淡出，不重置票池）
  *  songsError     拉取失败的提示文案（榜单显示「重新加载」）
- *  extraVotes     可用投票张数（唯一来源 = 兑换码核销，每个码 +5）
+ *  extraVotes     可用投票张数（唯一来源 = 兑换码核销，每个码 +5；写入 localStorage 持久化）
  *  toasts         全局轻提示
  *
  * 【票池】没有免费票：votesLeft = extraVotes —— 只能靠兑换码换票，
@@ -129,6 +130,32 @@ const ensureVoterId = () => {
 const NOT_READY_HINT =
   '还没有配置 Supabase：请在项目根目录的 .env.local 里填好 VITE_SUPABASE_URL 与 VITE_SUPABASE_ANON_KEY，然后重启 dev server。';
 
+/* ---------------- 本地票池持久化 ----------------
+ * 兑换来的票只存在浏览器本地（数据库只记录歌曲票数），
+ * 因此必须自己落盘：微信内置浏览器 / 手机浏览器下拉刷新页面后，
+ * 未用完的票数要从 localStorage 原样恢复，不能归零。 */
+const VOTES_LEFT_KEY = 'user_votes_left';
+
+/** 读取本地票数：缺失 / 非法 / 存储不可用一律回落到 0，绝不打断首屏 */
+const readStoredVotes = () => {
+  try {
+    const raw = window.localStorage.getItem(VOTES_LEFT_KEY);
+    const n = Number(raw);
+    return Number.isInteger(n) && n > 0 ? n : 0;
+  } catch {
+    return 0;
+  }
+};
+
+/** 写回本地票数：隐私模式 / 禁用存储时静默降级，投票与兑换照常进行 */
+const writeStoredVotes = (n) => {
+  try {
+    window.localStorage.setItem(VOTES_LEFT_KEY, String(n));
+  } catch {
+    /* 存不了就只保留在内存里，不影响本次使用 */
+  }
+};
+
 /** Realtime 通道名自增序号：StrictMode 下会「挂载 → 卸载 → 再挂载」，
  *  而 removeChannel 是异步退订的，同名通道可能和新通道撞在一起，
  *  所以每次挂载都取一个全新的话题名（同名话题名还是分开的订阅，互不干扰）。 */
@@ -138,16 +165,26 @@ function App() {
   /* 榜单歌曲：初始为空数组 —— 挂载后立刻从 Supabase 的 songs 表拉全量（票数降序） */
   const [songs, setSongs] = useState([]);
   /* 拉取状态：loading 时榜单显示「正在拉取」，error 时显示「重新加载」；
-     环境变量没配齐就直接以「未配置」的错误态开屏，免得一直转圈 */
+     环境变量没配齐就直接以「未配置」的错误态开屏，免得一直转圈。
+     songsRefreshing 只用于「手动同步最新榜单」—— 刷新期间保留旧榜单，
+     只让同步按钮转圈 + 榜单轻微淡出，绝不切回空空的加载态。 */
   const [songsLoading, setSongsLoading] = useState(isSupabaseReady);
+  const [songsRefreshing, setSongsRefreshing] = useState(false);
   const [songsError, setSongsError] = useState(isSupabaseReady ? '' : NOT_READY_HINT);
   const [query, setQuery] = useState('');
   const [sortBy, setSortBy] = useState('default');
   const [toasts, setToasts] = useState([]);
 
-  /* 兑换投票次数：extraVotes = 可用「兑换票」张数；redeemOpen = 浮层开关 */
-  const [extraVotes, setExtraVotes] = useState(0);
+  /* 兑换投票次数：extraVotes = 可用「兑换票」张数；redeemOpen = 浮层开关
+     初始值从 localStorage 恢复 —— 刷新页面后未用完的票数不会清零 */
+  const [extraVotes, setExtraVotes] = useState(readStoredVotes);
   const [redeemOpen, setRedeemOpen] = useState(false);
+
+  /* 票池持久化：extraVotes 就是 votesLeft 的唯一来源。
+     兑换 +5 / 投票 -1 都会触发这里，立刻写回 localStorage['user_votes_left'] */
+  useEffect(() => {
+    writeStoredVotes(extraVotes);
+  }, [extraVotes]);
 
   /* 作者的话：首屏「✍️ 作者的话」信笺浮层开关（与兑换浮层同一个挂载约定） */
   const [authorOpen, setAuthorOpen] = useState(false);
@@ -273,14 +310,20 @@ function App() {
     };
   }, [loadSongs, applyRealtimeRow]);
 
-  /** 拉取失败后点「重新加载」：先切回加载中，再重新拉一次
-   *  （环境变量都没配的话就不动状态了，让「未配置」那句提示继续留在榜单上） */
-  const reloadSongs = useCallback(() => {
-    if (!supabase) return;
+  /** 手动「同步最新榜单」/ 失败重试：只重新拉取 Supabase 的 songs
+   *  （排序 + votes_count 全量快照），绝不改动 extraVotes / localStorage 里的本地票池。
+   *  刷新期间旧榜单保持可见（VotingSection 负责按钮 Loading + 轻微淡出），
+   *  请求结束后再平滑淡入最新排名。 */
+  const reloadSongs = useCallback(async () => {
+    if (!supabase || songsRefreshing) return;
     setSongsError('');
-    setSongsLoading(true);
-    loadSongs();
-  }, [loadSongs]);
+    setSongsRefreshing(true);
+    try {
+      await loadSongs();
+    } finally {
+      setSongsRefreshing(false);
+    }
+  }, [loadSongs, songsRefreshing]);
 
   /* ---------------- 派生数据 ---------------- */
   /* 过滤 + 排序（关键字 → 排序）：分类筛选已移除，只按歌名 / 歌手搜索 */
@@ -628,6 +671,7 @@ function App() {
             onVote={handleVote}
             votesLeft={votesLeft}
             loading={songsLoading}
+            refreshing={songsRefreshing}
             error={songsError}
             onReload={reloadSongs}
           />

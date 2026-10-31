@@ -10,7 +10,7 @@ import { useRevealGroup } from '../utils/reveal';
  *      每张卡片只展示 歌名 + 歌手，最右侧显示票数。
  *      榜单数据不再有静态 Mock：由 App 从 Supabase 的 songs 表拉取
  *      （按 votes_count 降序）+ Realtime 监听 UPDATE 后重新排序，
- *      这里只负责把结果画出来，外加「加载中 / 连接失败」两种状态。
+ *      这里只负责把结果画出来，外加「加载中 / 同步中 / 连接失败」三种状态。
  *
  * props:
  *  visible         已经过滤/排序后的展示列表
@@ -22,8 +22,9 @@ import { useRevealGroup } from '../utils/reveal';
  *  onVote(id)      长按投票 → Promise<boolean>（这一票是否真的投出去了）
  *  votesLeft       票池里还能投出的票数（全部来自兑换码）；>0 时每张卡片都能继续投
  *  loading         首次拉取 songs 表是否还在进行中
+ *  refreshing      手动「同步最新榜单」是否进行中（旧榜单保持可见，只做淡出）
  *  error           拉取失败的提示文案（空串 = 正常）
- *  onReload()      失败后点「重新加载」重新拉取
+ *  onReload()      手动同步最新榜单 / 失败后重新加载
  *
  * 注意：这里不向卡片下发「我投过哪些歌」—— 投完票的卡片保持原样留在榜上，
  *      投票成功只由 App 的 Toast + 卡片内的 +1 浮字表达。
@@ -38,6 +39,7 @@ function VotingSection({
   onVote,
   votesLeft = 0,
   loading = false,
+  refreshing = false,
   error = '',
   onReload,
 }) {
@@ -55,6 +57,34 @@ function VotingSection({
         <p className="section__eyebrow">🔥 LIVE · 实时打榜</p>
         <h2 className="section__title">当前热门榜</h2>
         <p className="section__sub">你投出的每一票，都可能改变主舞台的暖场歌单。</p>
+      </div>
+
+      {/* 同步条：轻量提示 + 一键拉取最新榜单；只同步 songs，不动本地票池 */}
+      <div className="board-sync">
+        <p className="board-sync__hint" aria-live="polite">
+          <span
+            className={`board-sync__dot${refreshing ? ' is-pulsing' : ''}`}
+            aria-hidden="true"
+          />
+          {refreshing
+            ? '正在同步最新票数与排名…'
+            : loading
+              ? '正在连接实时榜单…'
+              : error
+                ? '榜单连接失败，点击按钮重试同步'
+                : '下拉刷新页面或点击同步最新榜单'}
+        </p>
+
+        <button
+          type="button"
+          className={`board-sync__btn${refreshing ? ' is-loading' : ''}`}
+          onClick={onReload}
+          disabled={refreshing || loading}
+          aria-label={refreshing ? '正在同步最新榜单' : '同步最新榜单'}
+        >
+          <span className="board-sync__icon" aria-hidden="true">↻</span>
+          {refreshing ? '同步中…' : '同步最新榜单'}
+        </button>
       </div>
 
       {/* 工具栏：搜索 + 排序（分类筛选已移除） */}
@@ -110,7 +140,11 @@ function VotingSection({
           </button>
         </div>
       ) : gridMounted ? (
-        <div className="song-grid" ref={gridRef}>
+        <div
+          className={`song-grid${refreshing ? ' song-grid--syncing' : ''}`}
+          ref={gridRef}
+          aria-busy={refreshing ? 'true' : undefined}
+        >
           {visible.map((song, index) => (
             <SongCard
               key={song.id}
