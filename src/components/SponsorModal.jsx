@@ -158,9 +158,14 @@ function SponsorModal({ onClose, initialTab = 'feedback' }) {
         >
           {tab === 'feedback' ? (
             <>
-              <p className="sponsor-modal__lead">
-                遇到 Bug 或有改进建议？欢迎联系站长交流。
-              </p>
+              <div className="sponsor-modal__lead sponsor-modal__lead--notice">
+                <p>
+                  用苹果手机的同学可能会因为系统原因在网站体验不佳，请见谅，本人已在尽力修复。
+                </p>
+                <p>
+                  另外，在校运会后在空余时间我会将本网站改造为关于本校的问卷及论坛网站，尽可能让学校能知道学生对校务的观点和建议，比如说早餐品种的投票等（其实我想多吃点肠粉）若期待的话请支持作者。
+                </p>
+              </div>
 
               <figure className="sponsor-modal__qr">
                 <div className="sponsor-modal__qr-frame">

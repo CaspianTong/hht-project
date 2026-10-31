@@ -178,6 +178,15 @@
   text-align: center;
   color: var(--text-secondary);
 }
+/* 微信二维码上方的长留言：左对齐更好读，段间留一点呼吸 */
+.sponsor-modal__lead--notice {
+  text-align: left;
+  font-size: 13.2px;
+  line-height: 1.85;
+}
+.sponsor-modal__lead--notice p + p {
+  margin-top: 8px;
+}
 
 .sponsor-modal__qr {
   margin: 0;
