@@ -86,7 +86,7 @@ function RedeemPanel({ onClose, onRedeem }) {
         ? reason === 'error'
           ? '⚠️ 核销失败，请稍后重试或联系负责人'
           : '⚠️ 该兑换码无效或已被核销'
-        : `输入 ${VOTE_CODE_LENGTH} 位兑换码后自动兑换`;
+        : `输入 ${VOTE_CODE_LENGTH} 位兑换码后自动兑换 · 字母大小写均可`;
 
   return (
     <div className="redeem" role="dialog" aria-modal="true" aria-labelledby="redeem-title">
@@ -124,6 +124,7 @@ function RedeemPanel({ onClose, onRedeem }) {
           <CodeSlots
             length={VOTE_CODE_LENGTH}
             allowLetters
+            uppercase
             status={status}
             disabled={checking}
             autoFocus

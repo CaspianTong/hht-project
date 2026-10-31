@@ -13,9 +13,11 @@
  * 另加一个 opt-in 开关（默认 false，完全不改上游数字输入行为）：
  *   3) allowLetters —— 开启后接受「数字 + 大小写字母」（兑换码可能是字母数字混合），
  *      键盘门控 / 粘贴清洗 / 值同步统一走同一个字符过滤器 codeCharsOf()。
+ *   4) uppercase   —— 开启后输入 / 粘贴的字母自动转成大写显示（与 allowLetters 搭配），
+ *      兑换码不区分大小写时视觉上更统一。
  *
  * props 见 README / 集成说明：length · value · defaultValue · onChange ·
- * onComplete · status · mask · caret · disabled · autoFocus · allowLetters +
+ * onComplete · status · mask · caret · disabled · autoFocus · allowLetters · uppercase +
  * 一组配色与尺寸参数（本项目统一传 index.css 的设计令牌，保持暖白轻奢主题一致）。
  * ===================================================================== */
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
@@ -37,11 +39,16 @@ const SINK_FADE = 0.6;
 const clamp01 = v => Math.min(1, Math.max(0, v));
 const digitsOf = raw => String(raw ?? '').replace(/\D/g, '');
 /* 统一字符过滤器：allowLetters=false → 纯数字（上游行为）；
-   true → 保留 0-9 / A-Z / a-z（大小写原样保留），空格 / 标点 / 中文一律剔除 */
-const codeCharsOf = (raw, allowLetters) =>
-  allowLetters ? String(raw ?? '').replace(/[^0-9A-Za-z]/g, '') : digitsOf(raw);
-const toSlots = (raw, n, allowLetters = false) => {
-  const d = codeCharsOf(raw, allowLetters).slice(0, n);
+   true → 保留 0-9 / A-Z / a-z，空格 / 标点 / 中文一律剔除；
+   uppercase=true 时再把字母统一转成大写（兑换码大小写不敏感时用） */
+const codeCharsOf = (raw, allowLetters, uppercase = false) => {
+  const cleaned = allowLetters
+    ? String(raw ?? '').replace(/[^0-9A-Za-z]/g, '')
+    : digitsOf(raw);
+  return uppercase ? cleaned.toUpperCase() : cleaned;
+};
+const toSlots = (raw, n, allowLetters = false, uppercase = false) => {
+  const d = codeCharsOf(raw, allowLetters, uppercase).slice(0, n);
   return Array.from({ length: n }, (_, i) => d[i] ?? '');
 };
 const firstEmptyOf = slots => {
@@ -53,6 +60,7 @@ const isFull = slots => slots.every(Boolean);
 export default function CodeSlots({
   length = 6,
   allowLetters = false,
+  uppercase = false,
   value,
   defaultValue = '',
   onChange,
@@ -81,7 +89,9 @@ export default function CodeSlots({
   const reduce = useReducedMotion();
   const inputRef = useRef(null);
   const rowRef = useRef(null);
-  const [slots, setSlots] = useState(() => toSlots(value ?? defaultValue, length, allowLetters));
+  const [slots, setSlots] = useState(() =>
+    toSlots(value ?? defaultValue, length, allowLetters, uppercase)
+  );
   const [active, setActive] = useState(() => firstEmptyOf(slots));
   const [focused, setFocused] = useState(false);
   const [veiled, setVeiled] = useState(status === 'success');
@@ -93,7 +103,9 @@ export default function CodeSlots({
   const draining = useRef(false);
   const drainTimer = useRef(undefined);
   const statusRef = useRef(status);
-  const emitted = useRef(codeCharsOf(value ?? defaultValue, allowLetters).slice(0, length));
+  const emitted = useRef(
+    codeCharsOf(value ?? defaultValue, allowLetters, uppercase).slice(0, length)
+  );
   const slotsRef = useRef(slots);
   const live = useRef({ settle, bounce, cascade, reduce });
 
@@ -200,7 +212,7 @@ export default function CodeSlots({
   );
 
   const insert = (raw, from = active) => {
-    const chars = codeCharsOf(raw, allowLetters);
+    const chars = codeCharsOf(raw, allowLetters, uppercase);
     if (!chars) return;
     const next = [...slotsRef.current];
     const crossed = [];
@@ -268,7 +280,7 @@ export default function CodeSlots({
   };
   const onInput = e => {
     if (isBusy()) return;
-    const d = codeCharsOf(e.target.value, allowLetters);
+    const d = codeCharsOf(e.target.value, allowLetters, uppercase);
     if (!d) return;
     insert(d, d.length === 1 ? active : 0);
   };
@@ -302,11 +314,11 @@ export default function CodeSlots({
 
   useEffect(() => {
     if (value === undefined) return;
-    const clean = codeCharsOf(value, allowLetters).slice(0, length);
+    const clean = codeCharsOf(value, allowLetters, uppercase).slice(0, length);
     if (clean === emitted.current) return;
     emitted.current = clean;
     const prev = slotsRef.current;
-    const next = toSlots(clean, length, allowLetters);
+    const next = toSlots(clean, length, allowLetters, uppercase);
     const hidden = statusRef.current === 'success';
     const landing = [];
     const leaving = [];
@@ -427,7 +439,7 @@ export default function CodeSlots({
           type="text"
           inputMode={allowLetters ? 'text' : 'numeric'}
           autoComplete="one-time-code"
-          autoCapitalize="off"
+          autoCapitalize={uppercase ? 'characters' : 'off'}
           autoCorrect="off"
           spellCheck={false}
           pattern={allowLetters ? '[0-9A-Za-z]*' : '[0-9]*'}

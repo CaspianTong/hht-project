@@ -13,7 +13,7 @@ export const PLATFORM_SLOGAN = '为赛场热血，投出你的 BGM';
  * 兑换投票次数（8 位验证码 → +5 票）
  *
  * 【后端接入点】核销已接 Supabase：App.jsx 的 handleRedeem 直接读写
- * redemption_codes 表（查 code 且 used = false → 置 used = true + used_at → 加票），
+ * redemption_codes 表（大小写不敏感查 code 且 used = false → 置 used = true + used_at → 加票），
  * 一码一次由数据库兜住；本文件只保留下面两个纯常量。
  * ===================================================================== */
 

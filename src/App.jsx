@@ -33,7 +33,8 @@
  *          而且只在「服务端确认投票成功」之后才扣掉一张）
  *
  * 【兑换核销】8 位兑换码已接 Supabase 的 redemption_codes 表：
- *  查 code 且 used = false → 置 used = true + used_at → 再加票（一码一次由数据库兜住）。
+ *  大小写不敏感：ilike 查 code → 用实际存储的 code 置 used = true + used_at → 再加票
+ *  （一码一次由数据库兜住）。
  * ===================================================================== */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Navbar from './components/Navbar';
@@ -479,8 +480,9 @@ function App() {
 
   /** 兑换投票次数：8 位兑换码 → +5 票，一码一次
    *  核销走 Supabase 的 redemption_codes 表（数据库才是唯一权威）：
-   *    ① 按 code 查一条：不存在 / used = true → 无效或已被核销
-   *    ② 置 used = true + used_at = now（带 used = false 条件，防并发重复核销）
+   *    ① 按 code 查一条（大小写不敏感）：不存在 / used = true → 无效或已被核销
+   *    ② 用数据库里实际存储的 code 置 used = true + used_at = now
+   *       （带 used = false 条件，防并发重复核销）
    *    ③ 数据库确认核销成功后才 +5 票，并弹 Toast —— 绝不本地先加
    *  返回 { ok, reason? } 交给 <RedeemPanel /> 决定卡片的成功 / 失败态：
    *    reason = 'invalid' 兑换码无效或已被核销 / 'error' 网络或权限异常 */
@@ -488,29 +490,34 @@ function App() {
     async (code) => {
       const key = String(code ?? '').trim();
 
+      if (!key) return { ok: false, reason: 'invalid' };
+
       if (!supabase) {
         pushToast('兑换服务暂不可用，请稍后再试', 'warn');
         return { ok: false, reason: 'error' };
       }
 
       try {
-        /* ① 查这个码：必须存在且还没被核销过 */
+        /* ① 查这个码：ilike 做不区分大小写的精确匹配（输入框只允许字母数字，
+              不会出现 % / _ 通配符）；必须存在且还没被核销过 */
         const { data, error } = await supabase
           .from('redemption_codes')
           .select('code, used')
-          .eq('code', key)
+          .ilike('code', key)
           .limit(1);
         if (error) throw error;
 
         const row = Array.isArray(data) ? data[0] : data;
         if (!row || row.used) return { ok: false, reason: 'invalid' };
 
-        /* ② 核销：改成已用并记下核销时间；再带一个 used = false 条件，
-              两人同时用同一个码时只有先到的那次能改到 1 行 */
+        /* ② 核销：改成已用并记下核销时间。这里用数据库实际存储的 code，
+              所以库里是大写 / 小写 / 混合大小写都能正确落库；
+              再带一个 used = false 条件，两人同时用同一个码时只有先到的那次能改到 1 行 */
+        const storedCode = row.code ?? key;
         const { data: updated, error: updateError } = await supabase
           .from('redemption_codes')
           .update({ used: true, used_at: new Date().toISOString() })
-          .eq('code', key)
+          .eq('code', storedCode)
           .eq('used', false)
           .select('code');
         if (updateError) throw updateError;
