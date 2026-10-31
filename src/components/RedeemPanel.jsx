@@ -45,8 +45,9 @@ const REDEEM_ERROR_TEXT = {
 function RedeemPanel({ onClose, onRedeem }) {
   /* status : 'idle' | 'error' | 'success' —— 直接喂给 CodeSlots 的 status */
   const [status, setStatus] = useState('idle');
-  const [checking, setChecking] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const submittingRef = useRef(false); /* 同步锁：setState 还没生效时也能挡住第二次请求 */
   const closeTimer = useRef(undefined);
 
   /* Esc 关闭 + 浮层期间锁住正文滚动（关掉还原） */
@@ -69,11 +70,15 @@ function RedeemPanel({ onClose, onRedeem }) {
   useEffect(() => () => clearTimeout(closeTimer.current), []);
 
   /** 8 位兑换码填满时触发（onComplete 只在填满瞬间调用一次）
-   *  onRedeem 内部已兜住 Supabase 异常；这里再包一层 try/finally，
-   *  保证无论成功 / 失败 / 抛错，checking 都会复位，不会卡在“正在核验” */
+   *  —— 手机双击 / 回车 / 连按最后一位都可能让 onComplete 触发两次，
+   *     这里用 submittingRef 做同步防抖：第一次进来立刻上锁，后续调用直接返回。
+   *  onRedeem 内部已兜住 Supabase 异常；try/finally 保证 isSubmitting 一定复位。 */
   const handleVerify = useCallback(
     async (code) => {
-      setChecking(true);
+      if (submittingRef.current) return;
+
+      submittingRef.current = true;
+      setIsSubmitting(true);
       setErrorMessage('');
 
       try {
@@ -92,18 +97,19 @@ function RedeemPanel({ onClose, onRedeem }) {
         );
         setStatus('error');
       } catch (err) {
-        console.error('[Redeem] onRedeem 抛出未捕获异常', err);
+        console.error('兑换报错详情:', err);
         setErrorMessage(REDEEM_ERROR_TEXT.network);
         setStatus('error');
       } finally {
-        setChecking(false);
+        submittingRef.current = false;
+        setIsSubmitting(false);
       }
     },
     [onRedeem, onClose],
   );
 
-  const tone = checking ? 'checking' : status;
-  const text = checking
+  const tone = isSubmitting ? 'checking' : status;
+  const text = isSubmitting
     ? '⏳ 正在核验兑换码…'
     : status === 'success'
       ? `✅ 兑换成功！投票次数 +${VOTES_PER_CODE}，可以为喜欢的歌继续加投啦`
@@ -141,7 +147,7 @@ function RedeemPanel({ onClose, onRedeem }) {
         </div>
 
         {/* 验证码输入：React Bits <CodeSlots />（8 位填满即自动校验） */}
-        <div className={`passcode is-${status}`}>
+        <div className={`passcode is-${status}`} aria-busy={isSubmitting ? 'true' : undefined}>
           <div className="passcode__head">
             <span className="passcode__label">{VOTE_CODE_LENGTH} 位验证码 *</span>
           </div>
@@ -151,7 +157,7 @@ function RedeemPanel({ onClose, onRedeem }) {
             allowLetters
             uppercase
             status={status}
-            disabled={checking}
+            disabled={isSubmitting}
             autoFocus
             onChange={() => {
               setStatus('idle');

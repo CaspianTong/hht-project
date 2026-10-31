@@ -171,19 +171,9 @@ const cleanRedemptionCode = (raw) =>
   toHalfWidth(raw)
     /* 零宽空格 / BOM 等不可见字符：部分手机输入法粘贴会带进来 */
     .replace(/[\u200B-\u200D\uFEFF]/g, '')
-    .replace(/\s+/g, '')
+    .replace(/[\s\r\n\t]/g, '')
+    .trim()
     .toUpperCase();
-
-/** 把 Supabase 的真实错误完整打到控制台，方便手机上远程排查 */
-const logRedeemError = (stage, error) => {
-  console.error(`[Redeem] ${stage} 失败`, {
-    message: error?.message ?? String(error),
-    code: error?.code ?? 'unknown',
-    details: error?.details ?? null,
-    hint: error?.hint ?? null,
-    error,
-  });
-};
 
 /** 把错误归类成 RedeemPanel 能展示的明确文案 */
 const describeRedeemError = (error, stage) => {
@@ -594,10 +584,11 @@ function App() {
 
   /** 兑换投票次数：8 位兑换码 → +5 票，一码一次
    *  核销走 Supabase 的 redemption_codes 表（数据库才是唯一权威）：
-   *    ⓪ cleanCode：全角转半角 → 去掉所有空白 → 转大写，并校验 8 位
-   *    ① 按 cleanCode 查一条（大小写不敏感）：不存在 / 已使用 → 明确提示
-   *    ② 用 cleanCode（或数据库实际存储的 code）核销，兼容 used = false / null
-   *    ③ 数据库确认核销成功后才 +5 票，并弹 Toast —— 绝不本地先加
+   *    ⓪ cleanCode：全角转半角 → 去掉空格 / 换行 / 制表符 → 转大写 → 校验 8 位
+   *    ① 单次原子 UPDATE：.eq('code', cleanCode).eq('used', false)
+   *       绝不链式 .select()；用 count: 'exact' 读取受影响行数
+   *    ② error 为 null 且 count === 1（或服务端未返回 count）→ 才本地 +5 票
+   *    ③ count === 0 → 已被使用 / 权限静默过滤，提示用户但不加票
    *  返回 { ok, reason, message? } 交给 <RedeemPanel />：
    *    reason = 'invalid' 无效 / 'used' 已使用 / 'permission' 权限受限
    *           / 'network' 网络异常 / 'error' 其它异常 */
@@ -625,68 +616,48 @@ function App() {
         };
       }
 
-      let stage = 'select';
       try {
-        /* ① 查询：cleanCode 已转半角 / 去空白 / 大写；
-              ilike 继续兼容历史数据里可能混存的大小写 */
-        const { data, error } = await supabase
+        /* 只执行一次 UPDATE，不先 SELECT、也不链式 .select()。
+           count: 'exact' 只返回受影响行数，不返回行数据。
+           used = false 是原子闸门：两台手机同时提交时只有一台能改到 1 行。 */
+        const { error, count } = await supabase
           .from('redemption_codes')
-          .select('code, used')
-          .ilike('code', cleanCode)
-          .limit(1);
-        if (error) throw error;
+          .update({ used: true }, { count: 'exact' })
+          .eq('code', cleanCode)
+          .eq('used', false);
 
-        const row = Array.isArray(data) ? data[0] : data;
-        if (!row) {
+        if (error) {
+          console.error('兑换报错详情:', error);
+          const info = describeRedeemError(error, 'update');
+          pushToast(`兑换失败：${info.message}`, 'warn');
+          return { ok: false, ...info };
+        }
+
+        /* count 为 0：卡券不存在 / 已被使用 / RLS 静默过滤（都不加票） */
+        if (typeof count === 'number' && count !== 1) {
+          console.warn('[Redeem] 更新受影响行数异常:', { cleanCode, count });
+          if (count === 0) {
+            return {
+              ok: false,
+              reason: 'used',
+              message: '该卡券已被使用或核销受限；若确认未使用，请联系管理员',
+            };
+          }
           return {
             ok: false,
-            reason: 'invalid',
-            message: '兑换码无效，请核对 8 位卡券内容',
+            reason: 'error',
+            message: '核销异常：卡券匹配异常，请联系管理员',
           };
         }
 
-        const alreadyUsed =
-          row.used === true || row.used === 'true' || row.used === 1;
-        if (alreadyUsed) {
-          return {
-            ok: false,
-            reason: 'used',
-            message: '该卡券已被使用，请换一张',
-          };
-        }
-
-        /* ② 核销：优先用 cleanCode；若库里存的是历史大小写，则回退到实际
-              code 精确更新。used 同时兼容 false 与 null 两种“未使用”值 */
-        stage = 'update';
-        const storedCode = row.code ?? cleanCode;
-        const { data: updated, error: updateError } = await supabase
-          .from('redemption_codes')
-          .update({ used: true, used_at: new Date().toISOString() })
-          .eq('code', storedCode)
-          .or('used.eq.false,used.is.null')
-          .select('code');
-        if (updateError) throw updateError;
-
-        if (!updated || updated.length === 0) {
-          console.warn('[Redeem] 更新未命中（可能已被抢先核销）', {
-            cleanCode,
-            storedCode,
-          });
-          return {
-            ok: false,
-            reason: 'used',
-            message: '该卡券刚刚已被使用，请勿重复提交',
-          };
-        }
-
-        /* ③ 数据库确认核销成功后才加票 */
+        /* error 为 null（且 count 正常）→ 数据库已确认核销，才给本地加票 */
         setExtraVotes((v) => v + VOTES_PER_CODE);
         pushToast(`🎟️ 兑换成功！投票次数 +${VOTES_PER_CODE}，可以给喜欢的歌继续加投啦`);
         return { ok: true, added: VOTES_PER_CODE };
       } catch (err) {
-        /* 完整打印真实 Supabase 错误（message / code / details / hint） */
-        logRedeemError(stage, err);
-        const info = describeRedeemError(err, stage);
+        /* 按要求打印真实报错对象（message / code / details 都在里面） */
+        console.error('兑换报错详情:', err);
+        const info = describeRedeemError(err, 'update');
         pushToast(`兑换失败：${info.message}`, 'warn');
         return { ok: false, ...info };
       }
