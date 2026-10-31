@@ -50,7 +50,7 @@ import AuthorNote from './components/AuthorNote';
 import SponsorModal from './components/SponsorModal';
 import Grainient from './components/Grainient';
 import LoadingScreen from './components/LoadingScreen';
-import { VOTES_PER_CODE } from './data/mockSongs';
+import { VOTES_PER_CODE, VOTE_CODE_LENGTH } from './data/mockSongs';
 import { supabase, isSupabaseReady } from './lib/supabase';
 import { bindAnchorScroll } from './utils/smoothScroll';
 import { useScrollProgress } from './utils/reveal';
@@ -154,6 +154,77 @@ const writeStoredVotes = (n) => {
   } catch {
     /* 存不了就只保留在内存里，不影响本次使用 */
   }
+};
+
+/* ---------------- 兑换码清洗 / 错误分类 ----------------
+ * 手机输入法常见问题：全角字母数字、首字母大写、末尾空格 / 换行、粘贴带隐藏字符。
+ * 进数据库前统一转半角 → 去掉所有空白 → 转大写，保证查询串是干净的 8 位大写码。 */
+const toHalfWidth = (raw) =>
+  String(raw ?? '')
+    /* 全角 ASCII 区（！～）整体左移 0xFEE0 → 半角；全角空格单独换普通空格 */
+    .replace(/[\uFF01-\uFF5E]/g, (ch) =>
+      String.fromCharCode(ch.charCodeAt(0) - 0xfee0),
+    )
+    .replace(/\u3000/g, ' ');
+
+const cleanRedemptionCode = (raw) =>
+  toHalfWidth(raw)
+    /* 零宽空格 / BOM 等不可见字符：部分手机输入法粘贴会带进来 */
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/\s+/g, '')
+    .toUpperCase();
+
+/** 把 Supabase 的真实错误完整打到控制台，方便手机上远程排查 */
+const logRedeemError = (stage, error) => {
+  console.error(`[Redeem] ${stage} 失败`, {
+    message: error?.message ?? String(error),
+    code: error?.code ?? 'unknown',
+    details: error?.details ?? null,
+    hint: error?.hint ?? null,
+    error,
+  });
+};
+
+/** 把错误归类成 RedeemPanel 能展示的明确文案 */
+const describeRedeemError = (error, stage) => {
+  const code = String(error?.code ?? '');
+  const text = `${error?.message ?? ''} ${error?.details ?? ''}`.toLowerCase();
+
+  const permissionDenied =
+    code === '42501' ||
+    code === '401' ||
+    code === '403' ||
+    text.includes('row-level security') ||
+    text.includes('permission denied') ||
+    text.includes('not allowed');
+
+  if (permissionDenied) {
+    return {
+      reason: 'permission',
+      message:
+        stage === 'update'
+          ? '数据库写入受限，请联系管理员'
+          : '数据库读取受限，请联系管理员',
+    };
+  }
+
+  const networkFailed =
+    error instanceof TypeError ||
+    text.includes('failed to fetch') ||
+    text.includes('load failed') || /* iOS Safari 的 fetch 失败文案 */
+    text.includes('networkerror') ||
+    text.includes('network request failed') ||
+    text.includes('network connection was lost') ||
+    text.includes('could not connect') ||
+    text.includes('the internet connection appears to be offline') ||
+    text.includes('timed out') ||
+    text.includes('timeout');
+
+  if (networkFailed) {
+    return { reason: 'network', message: '网络连接异常，请检查网络后重试' };
+  }
+
+  return { reason: 'error', message: '核销失败，请稍后重试或联系管理员' };
 };
 
 /** Realtime 通道名自增序号：StrictMode 下会「挂载 → 卸载 → 再挂载」，
@@ -523,56 +594,101 @@ function App() {
 
   /** 兑换投票次数：8 位兑换码 → +5 票，一码一次
    *  核销走 Supabase 的 redemption_codes 表（数据库才是唯一权威）：
-   *    ① 按 code 查一条（大小写不敏感）：不存在 / used = true → 无效或已被核销
-   *    ② 用数据库里实际存储的 code 置 used = true + used_at = now
-   *       （带 used = false 条件，防并发重复核销）
+   *    ⓪ cleanCode：全角转半角 → 去掉所有空白 → 转大写，并校验 8 位
+   *    ① 按 cleanCode 查一条（大小写不敏感）：不存在 / 已使用 → 明确提示
+   *    ② 用 cleanCode（或数据库实际存储的 code）核销，兼容 used = false / null
    *    ③ 数据库确认核销成功后才 +5 票，并弹 Toast —— 绝不本地先加
-   *  返回 { ok, reason? } 交给 <RedeemPanel /> 决定卡片的成功 / 失败态：
-   *    reason = 'invalid' 兑换码无效或已被核销 / 'error' 网络或权限异常 */
+   *  返回 { ok, reason, message? } 交给 <RedeemPanel />：
+   *    reason = 'invalid' 无效 / 'used' 已使用 / 'permission' 权限受限
+   *           / 'network' 网络异常 / 'error' 其它异常 */
   const handleRedeem = useCallback(
-    async (code) => {
-      const key = String(code ?? '').trim();
+    async (inputCode) => {
+      const cleanCode = cleanRedemptionCode(inputCode);
 
-      if (!key) return { ok: false, reason: 'invalid' };
+      if (
+        cleanCode.length !== VOTE_CODE_LENGTH ||
+        !/^[0-9A-Z]+$/.test(cleanCode)
+      ) {
+        return {
+          ok: false,
+          reason: 'invalid',
+          message: `请输入完整的 ${VOTE_CODE_LENGTH} 位卡券码`,
+        };
+      }
 
       if (!supabase) {
         pushToast('兑换服务暂不可用，请稍后再试', 'warn');
-        return { ok: false, reason: 'error' };
+        return {
+          ok: false,
+          reason: 'error',
+          message: '兑换服务暂不可用，请稍后重试',
+        };
       }
 
+      let stage = 'select';
       try {
-        /* ① 查这个码：ilike 做不区分大小写的精确匹配（输入框只允许字母数字，
-              不会出现 % / _ 通配符）；必须存在且还没被核销过 */
+        /* ① 查询：cleanCode 已转半角 / 去空白 / 大写；
+              ilike 继续兼容历史数据里可能混存的大小写 */
         const { data, error } = await supabase
           .from('redemption_codes')
           .select('code, used')
-          .ilike('code', key)
+          .ilike('code', cleanCode)
           .limit(1);
         if (error) throw error;
 
         const row = Array.isArray(data) ? data[0] : data;
-        if (!row || row.used) return { ok: false, reason: 'invalid' };
+        if (!row) {
+          return {
+            ok: false,
+            reason: 'invalid',
+            message: '兑换码无效，请核对 8 位卡券内容',
+          };
+        }
 
-        /* ② 核销：改成已用并记下核销时间。这里用数据库实际存储的 code，
-              所以库里是大写 / 小写 / 混合大小写都能正确落库；
-              再带一个 used = false 条件，两人同时用同一个码时只有先到的那次能改到 1 行 */
-        const storedCode = row.code ?? key;
+        const alreadyUsed =
+          row.used === true || row.used === 'true' || row.used === 1;
+        if (alreadyUsed) {
+          return {
+            ok: false,
+            reason: 'used',
+            message: '该卡券已被使用，请换一张',
+          };
+        }
+
+        /* ② 核销：优先用 cleanCode；若库里存的是历史大小写，则回退到实际
+              code 精确更新。used 同时兼容 false 与 null 两种“未使用”值 */
+        stage = 'update';
+        const storedCode = row.code ?? cleanCode;
         const { data: updated, error: updateError } = await supabase
           .from('redemption_codes')
           .update({ used: true, used_at: new Date().toISOString() })
           .eq('code', storedCode)
-          .eq('used', false)
+          .or('used.eq.false,used.is.null')
           .select('code');
         if (updateError) throw updateError;
-        if (!updated || updated.length === 0) return { ok: false, reason: 'invalid' };
+
+        if (!updated || updated.length === 0) {
+          console.warn('[Redeem] 更新未命中（可能已被抢先核销）', {
+            cleanCode,
+            storedCode,
+          });
+          return {
+            ok: false,
+            reason: 'used',
+            message: '该卡券刚刚已被使用，请勿重复提交',
+          };
+        }
 
         /* ③ 数据库确认核销成功后才加票 */
         setExtraVotes((v) => v + VOTES_PER_CODE);
         pushToast(`🎟️ 兑换成功！投票次数 +${VOTES_PER_CODE}，可以给喜欢的歌继续加投啦`);
         return { ok: true, added: VOTES_PER_CODE };
       } catch (err) {
-        pushToast(`兑换失败：${readError(err)}`, 'warn');
-        return { ok: false, reason: 'error' };
+        /* 完整打印真实 Supabase 错误（message / code / details / hint） */
+        logRedeemError(stage, err);
+        const info = describeRedeemError(err, stage);
+        pushToast(`兑换失败：${info.message}`, 'warn');
+        return { ok: false, ...info };
       }
     },
     [pushToast],

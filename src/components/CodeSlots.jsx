@@ -38,13 +38,23 @@ const SINK_FADE = 0.6;
 
 const clamp01 = v => Math.min(1, Math.max(0, v));
 const digitsOf = raw => String(raw ?? '').replace(/\D/g, '');
+/* 全角 → 半角：手机输入法常见的全角字母 / 数字 / 标点统一折回 ASCII，
+   全角空格（U+3000）折成普通空格，后续过滤器再统一剔除 */
+const toHalfWidth = raw =>
+  String(raw ?? '')
+    .replace(/[\uFF01-\uFF5E]/g, ch =>
+      String.fromCharCode(ch.charCodeAt(0) - 0xfee0)
+    )
+    .replace(/\u3000/g, ' ')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '');
 /* 统一字符过滤器：allowLetters=false → 纯数字（上游行为）；
    true → 保留 0-9 / A-Z / a-z，空格 / 标点 / 中文一律剔除；
    uppercase=true 时再把字母统一转成大写（兑换码大小写不敏感时用） */
 const codeCharsOf = (raw, allowLetters, uppercase = false) => {
+  const half = toHalfWidth(raw);
   const cleaned = allowLetters
-    ? String(raw ?? '').replace(/[^0-9A-Za-z]/g, '')
-    : digitsOf(raw);
+    ? half.replace(/[^0-9A-Za-z]/g, '')
+    : digitsOf(half);
   return uppercase ? cleaned.toUpperCase() : cleaned;
 };
 const toSlots = (raw, n, allowLetters = false, uppercase = false) => {
@@ -245,8 +255,15 @@ export default function CodeSlots({
      读 ref 只能发生在事件回调里，所以包成函数而不是渲染期常量。 */
   const isBusy = () => disabled || draining.current || status === 'success';
   const onKeyDown = e => {
+    /* 输入法组合中（中文 / 日文候选词）不抢键，交给 onInput 统一清洗 */
+    if (e.nativeEvent?.isComposing) return;
+    /* Enter 一律拦下：即使本组件以后被放进 <form>，也不会触发原生的提交 / 刷新 */
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      return;
+    }
     if (isBusy() || e.metaKey || e.ctrlKey || e.altKey) return;
-    const k = e.key;
+    const k = toHalfWidth(e.key);
     /* allowLetters 时把字母也放进来；只认单字符，避免 Shift / Enter 等被误吃 */
     const typed = allowLetters ? /^[0-9A-Za-z]$/.test(k) : /^[0-9]$/.test(k);
     if (typed) {

@@ -17,6 +17,15 @@ const SLOT_COLORS = {
   dangerColor: 'var(--accent-primary-hover)',
 };
 
+/* 失败原因 → 用户能看懂的提示（App 若给了更具体的 message，会优先用 App 的） */
+const REDEEM_ERROR_TEXT = {
+  invalid: '兑换码无效，请核对 8 位卡券内容',
+  used: '该卡券已被使用，请换一张',
+  permission: '数据库写入受限，请联系管理员',
+  network: '网络连接异常，请检查网络后重试',
+  error: '核销失败，请稍后重试或联系负责人',
+};
+
 /**
  * RedeemPanel —— 首屏「兑换投票次数」浮层卡片
  *
@@ -29,14 +38,15 @@ const SLOT_COLORS = {
  * props:
  *  onClose()       关闭卡片（✕ / 点遮罩 / 按 Esc 都会调用）
  *  onRedeem(code)  兑换回调（App 侧查 Supabase 的 redemption_codes 表并核销），
- *                  返回 { ok, reason? }；
- *                  reason = 'invalid' 兑换码无效或已被核销 / 'error' 网络异常
+ *                  返回 { ok, reason?, message? }；
+ *                  reason = 'invalid' 无效 / 'used' 已使用 / 'permission' 权限受限
+ *                         / 'network' 网络异常 / 'error' 其它异常
  */
 function RedeemPanel({ onClose, onRedeem }) {
   /* status : 'idle' | 'error' | 'success' —— 直接喂给 CodeSlots 的 status */
   const [status, setStatus] = useState('idle');
   const [checking, setChecking] = useState(false);
-  const [reason, setReason] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   const closeTimer = useRef(undefined);
 
   /* Esc 关闭 + 浮层期间锁住正文滚动（关掉还原） */
@@ -58,21 +68,36 @@ function RedeemPanel({ onClose, onRedeem }) {
   /* 卸载时清理“兑换成功后自动关闭”的定时器 */
   useEffect(() => () => clearTimeout(closeTimer.current), []);
 
-  /** 8 位数字填满时触发（onComplete 只在填满瞬间调用一次） */
+  /** 8 位兑换码填满时触发（onComplete 只在填满瞬间调用一次）
+   *  onRedeem 内部已兜住 Supabase 异常；这里再包一层 try/finally，
+   *  保证无论成功 / 失败 / 抛错，checking 都会复位，不会卡在“正在核验” */
   const handleVerify = useCallback(
     async (code) => {
       setChecking(true);
-      const res = await onRedeem(code);
-      setChecking(false);
+      setErrorMessage('');
 
-      if (res?.ok) {
-        setStatus('success');
-        closeTimer.current = setTimeout(onClose, 1400);
-        return;
+      try {
+        const res = await onRedeem(code);
+
+        if (res?.ok) {
+          setStatus('success');
+          closeTimer.current = setTimeout(onClose, 1400);
+          return;
+        }
+
+        setErrorMessage(
+          res?.message ||
+            REDEEM_ERROR_TEXT[res?.reason] ||
+            REDEEM_ERROR_TEXT.error,
+        );
+        setStatus('error');
+      } catch (err) {
+        console.error('[Redeem] onRedeem 抛出未捕获异常', err);
+        setErrorMessage(REDEEM_ERROR_TEXT.network);
+        setStatus('error');
+      } finally {
+        setChecking(false);
       }
-
-      setReason(res?.reason ?? 'invalid');
-      setStatus('error');
     },
     [onRedeem, onClose],
   );
@@ -83,12 +108,12 @@ function RedeemPanel({ onClose, onRedeem }) {
     : status === 'success'
       ? `✅ 兑换成功！投票次数 +${VOTES_PER_CODE}，可以为喜欢的歌继续加投啦`
       : status === 'error'
-        ? reason === 'error'
-          ? '⚠️ 核销失败，请稍后重试或联系负责人'
-          : '⚠️ 该兑换码无效或已被核销'
+        ? `⚠️ ${errorMessage || REDEEM_ERROR_TEXT.error}`
         : `输入 ${VOTE_CODE_LENGTH} 位兑换码后自动兑换 · 字母大小写均可`;
 
   return (
+    /* 注意：这里是 dialog 而不是 form —— 不存在原生 submit / 页面 reload；
+       CodeSlots 的 Enter 键也已 preventDefault，双保险。 */
     <div className="redeem" role="dialog" aria-modal="true" aria-labelledby="redeem-title">
       {/* 点遮罩关闭（背面可读但不抢焦点，纯装饰） */}
       <div className="redeem__backdrop" onClick={onClose} aria-hidden="true" />
@@ -128,7 +153,10 @@ function RedeemPanel({ onClose, onRedeem }) {
             status={status}
             disabled={checking}
             autoFocus
-            onChange={() => setStatus('idle')}
+            onChange={() => {
+              setStatus('idle');
+              setErrorMessage('');
+            }}
             onComplete={handleVerify}
             ariaLabel={`${VOTE_CODE_LENGTH} 位投票兑换验证码`}
             slotSize={40}
