@@ -301,6 +301,13 @@ function App() {
     return list;
   }, [songs, query, sortBy]);
 
+  /* 名次映射：以「全量榜单」为基准（songs 始终按票数降序），
+     这样搜索过滤后每首歌仍显示真实名次，而不是在结果里重新从 1 开始 */
+  const rankById = useMemo(
+    () => new Map(songs.map((song, index) => [String(song.id), index + 1])),
+    [songs],
+  );
+
   /* 票池（「提交我的音乐」卡片右上角仪表的数据源）
    *  没有免费票：所有票都来自兑换码核销（每个码 +5），兑多少就有多少；
    *  只要它 > 0，任意歌曲都能继续投，同一首歌投几次都行，
@@ -606,6 +613,7 @@ function App() {
               数据来自 Supabase：loading / error 两种状态也一并交给它渲染 */}
           <VotingSection
             visible={visible}
+            rankById={rankById}
             query={query}
             onQueryChange={setQuery}
             sortBy={sortBy}

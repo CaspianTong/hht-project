@@ -1,17 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import HoldButton from './bottom2';
 
-/** 长按判定时长（毫秒）：与 VotingSection 底部提示里的「2 秒」保持一致 */
-const VOTE_HOLD_MS = 2000;
+/** 长按判定时长（毫秒）：约 0.5 秒，蓝底白浪扫满即计票（轻点仍不会误投） */
+const VOTE_HOLD_MS = 500;
 
 /**
- * SongCard —— 单曲投票卡片（精简版：一行只放三样东西）
+ * SongCard —— 单曲投票卡片（精简版：一行放下四块信息）
  *
- *   左：歌名（主）+ 歌手（次）      中右：投票按钮      最右：当前票数
+ *   左：名次 + 歌名（主）+ 歌手（次）      中右：投票按钮      最右：当前票数
  *
  * 精简掉的内容（数据仍在 song 上，只是不再展示）：
- *   封面图 / 封面 emoji、TOP 名次徽章、分类标签、音浪可视化条、
+ *   封面图 / 封面 emoji、旧版 TOP 名次徽章、分类标签、音浪可视化条、
  *   虚拟播放按钮、一句话推荐、投稿班级与时长徽章 —— 扫榜更快、视觉更干净。
+ *   现在只在行首保留一枚低透明度的衬线名次数字（水印感，不抢歌名）。
  *
  * 【投票后的表现：卡片「保持不变」，只弹成功提示】
  *   投完票，这张卡片的外观 / 位置 / 可点性一律不变，绝不消失、不变淡、不换色：
@@ -23,7 +24,7 @@ const VOTE_HOLD_MS = 2000;
  *       瞬时反馈表达：按钮短暂显示「已投票」、票数旁浮起「+1 🔥」、页面右下角「投票成功」Toast。
  *
  * 投票按钮状态（票池见底才锁定；长按判定特效来自 components/bottom2 的 HoldButton）：
- *   票池还有票 → 恒定显示「投 TA 一票」（高级蓝胶囊；按住 2 秒，蓝底上漫过一道白浪，
+ *   票池还有票 → 恒定显示「投 TA 一票」（高级蓝胶囊；按住 0.5 秒，蓝底上漫过一道白浪，
  *                 松手才计票；同一首歌可以投任意多次，每确认一次消耗票池里 1 张票）
  *   票池已空   → 显示「票已用完」（中性灰锁定态，禁用）
  *   按钮文案一律纯文本（不加 emoji）；轻点不会投票，只有按满 VOTE_HOLD_MS 才触发。
@@ -40,15 +41,18 @@ const VOTE_HOLD_MS = 2000;
  *   song.artist 歌手 / 乐队（卡片次信息）
  *   song.votes  得票数（卡片最右侧信息）
  * @param {number}  props.index     在展示列表中的序号（用于交错淡入延迟）
+ * @param {number}  props.rank      全量榜单中的名次（1 起；不传则退回当前列表序号）
  * @param {number}  props.votesLeft 票池里还能投出的票数（>0 时任何歌都能继续投）
  * @param {Function} props.onVote   投票回调 onVote(song.id) → Promise<boolean>，
  *                                  返回值 = 这一票是否真的投出去了（决定要不要飘 +1）
  */
-export default function SongCard({ song, index = 0, votesLeft = 0, onVote }) {
+export default function SongCard({ song, index = 0, rank, votesLeft = 0, onVote }) {
   /* 票池模型：票池里还有票 → 任何一首歌都能投（同一首也能反复投）；票池见底才锁定。
      这里刻意不记录「我投没投过这首歌」—— 投完票卡片保持原样，不做任何持久态变化。 */
   const locked = votesLeft <= 0;
   const idleLabel = locked ? '票已用完' : '投 TA 一票';
+  const place = rank ?? index + 1;
+  const placeLabel = String(place).padStart(2, '0');
   const [burst, setBurst] = useState(false);
   const burstTimer = useRef(null);
 
@@ -98,6 +102,12 @@ export default function SongCard({ song, index = 0, votesLeft = 0, onVote }) {
         '--reveal-delay': `${Math.min(index, 11) * 45}ms`,
       }}
     >
+      {/* 名次：低透明度的衬线大数字，像榜单页边的水印；读屏走下面那行隐藏文本 */}
+      <span className="song-card__rank" aria-hidden="true">
+        {placeLabel}
+      </span>
+      <span className="song-card__sr">第 {place} 名</span>
+
       {/* 左：歌名 + 歌手（卡片只保留这两项歌曲信息） */}
       <div className="song-card__main">
         <h3 className="song-card__title" title={song.title}>
@@ -123,7 +133,7 @@ export default function SongCard({ song, index = 0, votesLeft = 0, onVote }) {
         doneLabel="已投票"
         disabled={locked}
         onHold={handleVote}
-        /* 手机端长按 2 秒期间，部分安卓 / iOS 浏览器会在达到阈值时弹出默认右键或
+        /* 手机端长按期间，部分安卓 / iOS 浏览器会在达到阈值时弹出默认右键或
            快捷菜单（安卓自带浏览器 / 夸克 / UC 的「问 AI / 复制 / 搜索」、iOS 的「拷贝 / 查询 / 分享」）——
            菜单一弹出来，长按手势就被系统抢走、进度条当场回弹。
            JS（本行 + bottom2.jsx 的原生触摸监听）与 CSS（user-select / touch-callout /

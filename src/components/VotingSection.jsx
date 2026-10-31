@@ -14,6 +14,7 @@ import { useRevealGroup } from '../utils/reveal';
  *
  * props:
  *  visible         已经过滤/排序后的展示列表
+ *  rankById        全量榜单的「歌曲 id → 名次」映射（搜索过滤后名次不重排）
  *  query           搜索关键字
  *  onQueryChange(value)
  *  sortBy          'default' | 'votes'
@@ -29,6 +30,7 @@ import { useRevealGroup } from '../utils/reveal';
  */
 function VotingSection({
   visible,
+  rankById,
   query,
   onQueryChange,
   sortBy,
@@ -114,6 +116,7 @@ function VotingSection({
               key={song.id}
               song={song}
               index={index}
+              rank={rankById?.get(String(song.id)) ?? index + 1}
               votesLeft={votesLeft}
               onVote={onVote}
             />
