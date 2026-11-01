@@ -10,17 +10,14 @@ export const PLATFORM_NAME = '尚雅2026校运会音乐投票';
 export const PLATFORM_SLOGAN = '为赛场热血，投出你的 BGM';
 
 /* =====================================================================
- * 兑换投票次数（8 位验证码 → +5 票）
+ * 兑换投票次数（8 位验证码 → 按 redemption_codes.votes 面值加票）
  *
  * 【后端接入点】核销已接 Supabase：App.jsx 的 handleRedeem 直接读写
- * redemption_codes 表（大小写不敏感查 code 且 used = false → 置 used = true + used_at → 加票），
- * 一码一次由数据库兜住；本文件只保留下面两个纯常量。
+ * redemption_codes 表（先查 code / votes / used，再原子置 used = true，最后加票），
+ * 一码一次由数据库兜住；本文件只保留兑换码长度常量。
  * ===================================================================== */
 
 /** 兑换码长度（8 位：数字 / 字母，与首屏浮层里的 <CodeSlots length={8} allowLetters /> 一一对应） */
 export const VOTE_CODE_LENGTH = 8;
 
-/** 每成功兑换一次增加的投票次数 */
-export const VOTES_PER_CODE = 5;
-
-/* 兑换码不再有客户端演示值：有效性 / 是否已核销一律以 redemption_codes 表为准 */
+/* 兑换码不再有客户端演示值：有效性 / 是否已核销 / 面值一律以 redemption_codes 表为准 */

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { VOTES_PER_CODE, VOTE_CODE_LENGTH } from '../data/mockSongs';
+import { VOTE_CODE_LENGTH } from '../data/mockSongs';
 import CodeSlots from './CodeSlots';
 
 /* CodeSlots 配色：全部引用 index.css 设计令牌，与暖白轻奢主题保持同一套语言
@@ -30,7 +30,7 @@ const REDEEM_ERROR_TEXT = {
  * RedeemPanel —— 首屏「兑换投票次数」浮层卡片
  *
  * 卡片里只有一个输入框：React Bits <CodeSlots />，8 位验证码填满即自动兑换，
- * 成功则 +5 票并自动收起卡片（无需再点一次按钮），失败留在卡片里提示重输。
+ * 成功则按卡券面值加票并自动收起卡片（无需再点一次按钮），失败留在卡片里提示重输。
  *
  * ⚠️ 本组件不做“打开时重置”的副作用 —— App 只在需要时挂载它
  *    （{redeemOpen && <RedeemPanel />}），每次打开都是全新状态。
@@ -38,15 +38,15 @@ const REDEEM_ERROR_TEXT = {
  * props:
  *  onClose()       关闭卡片（✕ / 点遮罩 / 按 Esc 都会调用）
  *  onRedeem(code)  兑换回调（App 侧查 Supabase 的 redemption_codes 表并核销），
- *                  返回 { ok, reason?, message? }；
- *                  reason = 'invalid' 无效 / 'used' 已使用 / 'permission' 权限受限
- *                         / 'network' 网络异常 / 'error' 其它异常
+ *                  返回 { ok, reason?, message?, added? }；
+ *                  reason = 'invalid' 无效 / 'used' 已使用 / 'error' 数据库或网络异常
  */
 function RedeemPanel({ onClose, onRedeem }) {
   /* status : 'idle' | 'error' | 'success' —— 直接喂给 CodeSlots 的 status */
   const [status, setStatus] = useState('idle');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [addedVotes, setAddedVotes] = useState(1);
   const submittingRef = useRef(false); /* 同步锁：setState 还没生效时也能挡住第二次请求 */
   const closeTimer = useRef(undefined);
 
@@ -85,6 +85,10 @@ function RedeemPanel({ onClose, onRedeem }) {
         const res = await onRedeem(code);
 
         if (res?.ok) {
+          const earned = Number(res?.added);
+          setAddedVotes(
+            Number.isFinite(earned) && earned > 0 ? Math.trunc(earned) : 1,
+          );
           setStatus('success');
           closeTimer.current = setTimeout(onClose, 1400);
           return;
@@ -113,7 +117,7 @@ function RedeemPanel({ onClose, onRedeem }) {
           text = String(err);
         }
         if (typeof window !== 'undefined' && typeof window.alert === 'function') {
-          window.alert('错误排查信息: ' + text);
+          window.alert('核销失败，请重试！\n错误排查信息: ' + text);
         }
 
         setErrorMessage(err?.message || REDEEM_ERROR_TEXT.network);
@@ -130,7 +134,7 @@ function RedeemPanel({ onClose, onRedeem }) {
   const text = isSubmitting
     ? '⏳ 正在核验兑换码…'
     : status === 'success'
-      ? `✅ 兑换成功！投票次数 +${VOTES_PER_CODE}，可以为喜欢的歌继续加投啦`
+      ? `✅ 兑换成功！投票次数 +${addedVotes}，可以为喜欢的歌继续加投啦`
       : status === 'error'
         ? `⚠️ ${errorMessage || REDEEM_ERROR_TEXT.error}`
         : `输入 ${VOTE_CODE_LENGTH} 位兑换码后自动兑换 · 字母大小写均可`;
@@ -160,7 +164,7 @@ function RedeemPanel({ onClose, onRedeem }) {
             兑换投票次数
           </h2>
           <p className="redeem__sub">
-            输入 {VOTE_CODE_LENGTH} 位验证码，即可兑换 {VOTES_PER_CODE} 票
+            输入 {VOTE_CODE_LENGTH} 位验证码，按卡券面值兑换投票次数
           </p>
         </div>
 
@@ -203,7 +207,7 @@ function RedeemPanel({ onClose, onRedeem }) {
         </p>
 
         <p className="redeem__foot">
-          🎟️ 一码一次 · 兑换后可给任意歌曲继续加投 {VOTES_PER_CODE} 票
+          🎟️ 一码一次 · 按卡券面值加票，可给任意歌曲继续加投
         </p>
       </div>
     </div>

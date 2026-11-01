@@ -24,7 +24,7 @@
  *  songsLoading   首次拉取是否进行中（榜单显示「正在拉取」而不是空态）
  *  songsRefreshing 手动同步是否进行中（只影响按钮 Loading 与榜单淡出，不重置票池）
  *  songsError     拉取失败的提示文案（榜单显示「重新加载」）
- *  extraVotes     可用投票张数（唯一来源 = 兑换码核销，每个码 +5；写入 localStorage 持久化）
+ *  extraVotes     可用投票张数（唯一来源 = 兑换码核销，按卡券面值增加；写入 localStorage 持久化）
  *  toasts         全局轻提示
  *
  * 【票池】没有免费票：votesLeft = extraVotes —— 只能靠兑换码换票，
@@ -50,7 +50,7 @@ import AuthorNote from './components/AuthorNote';
 import SponsorModal from './components/SponsorModal';
 import Grainient from './components/Grainient';
 import LoadingScreen from './components/LoadingScreen';
-import { VOTES_PER_CODE, VOTE_CODE_LENGTH } from './data/mockSongs';
+import { VOTE_CODE_LENGTH } from './data/mockSongs';
 import { supabase, isSupabaseReady } from './lib/supabase';
 import { bindAnchorScroll } from './utils/smoothScroll';
 import { useScrollProgress } from './utils/reveal';
@@ -175,50 +175,8 @@ const cleanRedemptionCode = (raw) =>
     .trim()
     .toUpperCase();
 
-/** 把错误归类成 RedeemPanel 能展示的明确文案 */
-const describeRedeemError = (error, stage) => {
-  const code = String(error?.code ?? '');
-  const text = `${error?.message ?? ''} ${error?.details ?? ''}`.toLowerCase();
-
-  const permissionDenied =
-    code === '42501' ||
-    code === '401' ||
-    code === '403' ||
-    text.includes('row-level security') ||
-    text.includes('permission denied') ||
-    text.includes('not allowed');
-
-  if (permissionDenied) {
-    return {
-      reason: 'permission',
-      message:
-        stage === 'update'
-          ? '数据库写入受限，请联系管理员'
-          : '数据库读取受限，请联系管理员',
-    };
-  }
-
-  const networkFailed =
-    error instanceof TypeError ||
-    text.includes('failed to fetch') ||
-    text.includes('load failed') || /* iOS Safari 的 fetch 失败文案 */
-    text.includes('networkerror') ||
-    text.includes('network request failed') ||
-    text.includes('network connection was lost') ||
-    text.includes('could not connect') ||
-    text.includes('the internet connection appears to be offline') ||
-    text.includes('timed out') ||
-    text.includes('timeout');
-
-  if (networkFailed) {
-    return { reason: 'network', message: '网络连接异常，请检查网络后重试' };
-  }
-
-  return { reason: 'error', message: '未知错误，请将错误弹窗截图发给管理员' };
-};
-
 /** 诊断用：把 Supabase 的真实错误完整弹出并写入控制台（排查结束后可移除 alert） */
-const showRedeemError = (error) => {
+const showRedeemError = (error, title = '核销失败，请重试！') => {
   const detail = {
     message: error?.message ?? String(error ?? '未知错误'),
     code: error?.code ?? null,
@@ -237,7 +195,7 @@ const showRedeemError = (error) => {
   }
 
   if (typeof window !== 'undefined' && typeof window.alert === 'function') {
-    window.alert('错误排查信息: ' + text);
+    window.alert(`${title}\n错误排查信息: ${text}`);
   }
 };
 
@@ -266,7 +224,7 @@ function App() {
   const [redeemOpen, setRedeemOpen] = useState(false);
 
   /* 票池持久化：extraVotes 就是 votesLeft 的唯一来源。
-     兑换 +5 / 投票 -1 都会触发这里，立刻写回 localStorage['user_votes_left'] */
+     兑换按卡券面值增加 / 投票 -1 都会触发这里，立刻写回 localStorage['user_votes_left'] */
   useEffect(() => {
     writeStoredVotes(extraVotes);
   }, [extraVotes]);
@@ -440,7 +398,7 @@ function App() {
   );
 
   /* 票池（「提交我的音乐」卡片右上角仪表的数据源）
-   *  没有免费票：所有票都来自兑换码核销（每个码 +5），兑多少就有多少；
+   *  没有免费票：所有票都来自兑换码核销（按卡券面值），兑多少就有多少；
    *  只要它 > 0，任意歌曲都能继续投，同一首歌投几次都行，
    *  票池见底才拦（引导去兑换），会随投票 / 兑换实时变化。 */
   const votesLeft = extraVotes;
@@ -608,69 +566,113 @@ function App() {
     [handleVote, pushToast],
   );
 
-  /** 兑换投票次数：8 位兑换码 → +5 票，一码一次
-   *  核销走 Supabase 的 redemption_codes 表（数据库才是唯一权威）：
-   *    ⓪ cleanCode：全角转半角 → 去掉空格 / 换行 / 制表符 → 转大写 → 校验 8 位
-   *    ① 只执行一次 UPDATE，绝不链式 .select()
-   *    ② 只要 error === null 就视为核销成功（Supabase update 的 data 默认是 null，
-   *       绝不能拿 data 判失败）
-   *    ③ error 非空 → alert 真实错误详情 + console.error('核销完整错误:', error)
-   *  返回 { ok, reason, message? } 交给 <RedeemPanel />：
-   *    reason = 'invalid' 无效 / 'used' 已使用 / 'permission' 权限受限
-   *           / 'network' 网络异常 / 'error' 其它异常 */
+  /** 兑换投票次数：8 位兑换码 → 按卡券面值加票，一码一次
+   *  严格执行「先查验 → 再核销 → 最后加票」：
+   *    ① SELECT code / votes / used，确认卡券存在且未使用
+   *    ② UPDATE used = true（带 used = false 原子条件），并确认受影响行数 === 1
+   *    ③ 只有数据库真的核销成功，才按 codeData.votes 给本地加票
+   *  返回 { ok, reason, message?, added? } 交给 <RedeemPanel />：
+   *    reason = 'invalid' 无效 / 'used' 已使用 / 'error' 数据库或网络异常 */
   const handleRedeem = useCallback(
     async (inputCode) => {
       const cleanCode = cleanRedemptionCode(inputCode);
+
+      if (!cleanCode) {
+        window.alert('请输入兑换码');
+        return { ok: false, reason: 'invalid', message: '请输入兑换码' };
+      }
 
       if (
         cleanCode.length !== VOTE_CODE_LENGTH ||
         !/^[0-9A-Z]+$/.test(cleanCode)
       ) {
-        return {
-          ok: false,
-          reason: 'invalid',
-          message: `请输入完整的 ${VOTE_CODE_LENGTH} 位卡券码`,
-        };
+        const message = `请输入正确的 ${VOTE_CODE_LENGTH} 位兑换码`;
+        window.alert(message);
+        return { ok: false, reason: 'invalid', message };
       }
 
       if (!supabase) {
-        pushToast('兑换服务暂不可用，请稍后再试', 'warn');
-        return {
-          ok: false,
-          reason: 'error',
-          message: '兑换服务暂不可用，请稍后重试',
-        };
+        const message = '兑换服务暂不可用，请稍后再试';
+        window.alert(message);
+        return { ok: false, reason: 'error', message };
       }
 
       try {
-        /* 按指定写法：只 UPDATE，不链式 .select()，也不看 data */
-        const { error } = await supabase
+        /* 第一步：先查验卡券是否存在、面值多少、是否已经用过 */
+        const { data: codeData, error: fetchError } = await supabase
           .from('redemption_codes')
-          .update({ used: true })
+          .select('code, votes, used')
+          .eq('code', cleanCode)
+          .maybeSingle();
+
+        if (fetchError) {
+          showRedeemError(fetchError, '查询兑换码失败');
+          return {
+            ok: false,
+            reason: 'error',
+            message: fetchError.message || '查询兑换码失败',
+          };
+        }
+
+        if (!codeData) {
+          const message = '兑换码不存在，请输入正确的卡券码！';
+          window.alert(message);
+          return { ok: false, reason: 'invalid', message };
+        }
+
+        if (codeData.used) {
+          const message = '该兑换码已被使用，无法重复兑换！';
+          window.alert(message);
+          return { ok: false, reason: 'used', message };
+        }
+
+        /* 第二步：原子核销。必须确认真的改到 1 行 ——
+           update 影响 0 行时 error 仍然是 null，绝不能据此加票。 */
+        const { error: updateError, count } = await supabase
+          .from('redemption_codes')
+          .update({ used: true }, { count: 'exact' })
           .eq('code', cleanCode)
           .eq('used', false);
 
-        if (error) {
-          showRedeemError(error);
-          const info = describeRedeemError(error, 'update');
-          const message = error?.message || info.message;
-          pushToast(`兑换失败：${message}`, 'warn');
-          return { ok: false, reason: info.reason, message };
+        if (updateError) {
+          showRedeemError(updateError, '核销失败，请重试！');
+          return {
+            ok: false,
+            reason: 'error',
+            message: updateError.message || '核销失败，请重试！',
+          };
         }
 
-        /* error === null → 直接视为核销成功（Supabase update 的 data 本来就可能为 null） */
-        setExtraVotes((v) => v + VOTES_PER_CODE);
-        pushToast(`🎟️ 兑换成功！投票次数 +${VOTES_PER_CODE}，可以给喜欢的歌继续加投啦`);
-        return { ok: true, added: VOTES_PER_CODE };
+        if (count !== 1) {
+          console.warn('[Redeem] 核销未命中（可能已被抢先使用）:', {
+            cleanCode,
+            count,
+          });
+          const message = '该兑换码已被使用，无法重复兑换！';
+          window.alert(message);
+          return { ok: false, reason: 'used', message };
+        }
+
+        /* 第三步：数据库确认核销成功后才加票，按卡券面值（votes）发放 */
+        const parsedVotes = Number(codeData.votes);
+        const addVotes =
+          Number.isFinite(parsedVotes) && parsedVotes > 0
+            ? Math.trunc(parsedVotes)
+            : 1;
+
+        setExtraVotes((prev) => prev + addVotes);
+        window.alert(`兑换成功！获得 ${addVotes} 票`);
+        return { ok: true, added: addVotes };
       } catch (err) {
-        showRedeemError(err);
-        const info = describeRedeemError(err, 'update');
-        const message = err?.message || info.message;
-        pushToast(`兑换失败：${message}`, 'warn');
-        return { ok: false, reason: info.reason, message };
+        showRedeemError(err, '核销失败，请重试！');
+        return {
+          ok: false,
+          reason: 'error',
+          message: err?.message || '核销失败，请重试！',
+        };
       }
     },
-    [pushToast],
+    [],
   );
 
   /** 兑换浮层开关（关闭即卸载组件 → 下次打开又是全新状态） */
