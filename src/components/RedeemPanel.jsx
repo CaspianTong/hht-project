@@ -23,7 +23,7 @@ const REDEEM_ERROR_TEXT = {
   used: '该卡券已被使用，请换一张',
   permission: '数据库写入受限，请联系管理员',
   network: '网络连接异常，请检查网络后重试',
-  error: '核销失败，请稍后重试或联系负责人',
+  error: '未知错误，请将错误弹窗截图发给管理员',
 };
 
 /**
@@ -97,8 +97,26 @@ function RedeemPanel({ onClose, onRedeem }) {
         );
         setStatus('error');
       } catch (err) {
-        console.error('兑换报错详情:', err);
-        setErrorMessage(REDEEM_ERROR_TEXT.network);
+        const detail = {
+          message: err?.message ?? String(err ?? '未知错误'),
+          code: err?.code ?? null,
+          details: err?.details ?? null,
+          hint: err?.hint ?? null,
+        };
+
+        console.error('核销完整错误:', err);
+
+        let text;
+        try {
+          text = JSON.stringify(detail);
+        } catch {
+          text = String(err);
+        }
+        if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+          window.alert('错误排查信息: ' + text);
+        }
+
+        setErrorMessage(err?.message || REDEEM_ERROR_TEXT.network);
         setStatus('error');
       } finally {
         submittingRef.current = false;

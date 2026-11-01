@@ -214,7 +214,31 @@ const describeRedeemError = (error, stage) => {
     return { reason: 'network', message: '网络连接异常，请检查网络后重试' };
   }
 
-  return { reason: 'error', message: '核销失败，请稍后重试或联系管理员' };
+  return { reason: 'error', message: '未知错误，请将错误弹窗截图发给管理员' };
+};
+
+/** 诊断用：把 Supabase 的真实错误完整弹出并写入控制台（排查结束后可移除 alert） */
+const showRedeemError = (error) => {
+  const detail = {
+    message: error?.message ?? String(error ?? '未知错误'),
+    code: error?.code ?? null,
+    details: error?.details ?? null,
+    hint: error?.hint ?? null,
+    status: error?.status ?? null,
+  };
+
+  console.error('核销完整错误:', error);
+
+  let text;
+  try {
+    text = JSON.stringify(detail);
+  } catch {
+    text = String(error);
+  }
+
+  if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+    window.alert('错误排查信息: ' + text);
+  }
 };
 
 /** Realtime 通道名自增序号：StrictMode 下会「挂载 → 卸载 → 再挂载」，
@@ -587,10 +611,10 @@ function App() {
   /** 兑换投票次数：8 位兑换码 → +5 票，一码一次
    *  核销走 Supabase 的 redemption_codes 表（数据库才是唯一权威）：
    *    ⓪ cleanCode：全角转半角 → 去掉空格 / 换行 / 制表符 → 转大写 → 校验 8 位
-   *    ① 单次原子 UPDATE：.eq('code', cleanCode).eq('used', false)
-   *       绝不链式 .select()；用 count: 'exact' 读取受影响行数
-   *    ② error 为 null 且 count === 1（或服务端未返回 count）→ 才本地 +5 票
-   *    ③ count === 0 → 已被使用 / 权限静默过滤，提示用户但不加票
+   *    ① 只执行一次 UPDATE，绝不链式 .select()
+   *    ② 只要 error === null 就视为核销成功（Supabase update 的 data 默认是 null，
+   *       绝不能拿 data 判失败）
+   *    ③ error 非空 → alert 真实错误详情 + console.error('核销完整错误:', error)
    *  返回 { ok, reason, message? } 交给 <RedeemPanel />：
    *    reason = 'invalid' 无效 / 'used' 已使用 / 'permission' 权限受限
    *           / 'network' 网络异常 / 'error' 其它异常 */
@@ -619,49 +643,31 @@ function App() {
       }
 
       try {
-        /* 只执行一次 UPDATE，不先 SELECT、也不链式 .select()。
-           count: 'exact' 只返回受影响行数，不返回行数据。
-           used = false 是原子闸门：两台手机同时提交时只有一台能改到 1 行。 */
-        const { error, count } = await supabase
+        /* 按指定写法：只 UPDATE，不链式 .select()，也不看 data */
+        const { error } = await supabase
           .from('redemption_codes')
-          .update({ used: true }, { count: 'exact' })
+          .update({ used: true })
           .eq('code', cleanCode)
           .eq('used', false);
 
         if (error) {
-          console.error('兑换报错详情:', error);
+          showRedeemError(error);
           const info = describeRedeemError(error, 'update');
-          pushToast(`兑换失败：${info.message}`, 'warn');
-          return { ok: false, ...info };
+          const message = error?.message || info.message;
+          pushToast(`兑换失败：${message}`, 'warn');
+          return { ok: false, reason: info.reason, message };
         }
 
-        /* count 为 0：卡券不存在 / 已被使用 / RLS 静默过滤（都不加票） */
-        if (typeof count === 'number' && count !== 1) {
-          console.warn('[Redeem] 更新受影响行数异常:', { cleanCode, count });
-          if (count === 0) {
-            return {
-              ok: false,
-              reason: 'used',
-              message: '该卡券已被使用或核销受限；若确认未使用，请联系管理员',
-            };
-          }
-          return {
-            ok: false,
-            reason: 'error',
-            message: '核销异常：卡券匹配异常，请联系管理员',
-          };
-        }
-
-        /* error 为 null（且 count 正常）→ 数据库已确认核销，才给本地加票 */
+        /* error === null → 直接视为核销成功（Supabase update 的 data 本来就可能为 null） */
         setExtraVotes((v) => v + VOTES_PER_CODE);
         pushToast(`🎟️ 兑换成功！投票次数 +${VOTES_PER_CODE}，可以给喜欢的歌继续加投啦`);
         return { ok: true, added: VOTES_PER_CODE };
       } catch (err) {
-        /* 按要求打印真实报错对象（message / code / details 都在里面） */
-        console.error('兑换报错详情:', err);
+        showRedeemError(err);
         const info = describeRedeemError(err, 'update');
-        pushToast(`兑换失败：${info.message}`, 'warn');
-        return { ok: false, ...info };
+        const message = err?.message || info.message;
+        pushToast(`兑换失败：${message}`, 'warn');
+        return { ok: false, reason: info.reason, message };
       }
     },
     [pushToast],
