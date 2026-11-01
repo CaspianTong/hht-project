@@ -897,8 +897,11 @@
     border-color: var(--border-active); /* 边框高亮为柔和高级蓝 */
     box-shadow: var(--shadow-card-hover); /* 阴影自然扩散 */
   }
-  .song-card:hover .song-card__rank {
-    opacity: 0.4; /* 悬停时名次稍微显影，仍保持水印感 */
+  .song-card:hover .song-card__rank:not(.song-card__rank--podium) {
+    opacity: 0.4; /* 悬停时普通名次稍微显影，仍保持水印感 */
+  }
+  .song-card:hover .song-card__rank--podium {
+    filter: drop-shadow(0 0 13px rgba(212, 175, 55, 0.55));
   }
 }
 /* 这里刻意没有「已投票」状态类：投票后卡片外观保持不变（className 一旦随投票变化，
@@ -933,6 +936,36 @@
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+
+/* ---------- 前三名：镀金名次牌 ----------
+   金属金渐变 + 细微高光 + 暖金光晕；01 / 02 / 03 比普通名次更醒目，
+   但仍保持衬线数字的名次牌形态，不额外增加徽章 DOM。 */
+.song-card__rank--podium {
+  font-size: 31px;
+  font-weight: 800;
+  opacity: 1;
+  color: #b8860b; /* 不支持渐变文字时的黄铜色兜底 */
+  text-shadow: none;
+  filter: drop-shadow(0 0 9px rgba(212, 175, 55, 0.35));
+  transition: filter 0.3s ease;
+}
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .song-card__rank--podium {
+    background: linear-gradient(
+      140deg,
+      #7a4f0b 0%,
+      #b8860b 22%,
+      #f5d97a 46%,
+      #fff3c4 52%,
+      #d4af37 64%,
+      #8c5b0d 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
 }
 
 /* ---------- 封面 / 分类标签：卡片精简后已移除；名次改为行首水印数字 ---------- */
@@ -1056,6 +1089,10 @@
   .song-card__rank {
     width: 32px;
     font-size: 24px;
+  }
+  .song-card__rank--podium {
+    font-size: 26px;
+    opacity: 1;
   }
   .song-card__votes {
     min-width: 72px;
@@ -2165,6 +2202,11 @@
     width: 26px;
     font-size: 20px;
     opacity: 0.3;
+  }
+  .song-card__rank--podium {
+    width: 28px;
+    font-size: 23px;
+    opacity: 1;
   }
   .song-card__votes {
     min-width: 56px;

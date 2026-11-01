@@ -102,8 +102,11 @@ export default function SongCard({ song, index = 0, rank, votesLeft = 0, onVote 
         '--reveal-delay': `${Math.min(index, 11) * 45}ms`,
       }}
     >
-      {/* 名次：低透明度的衬线大数字，像榜单页边的水印；读屏走下面那行隐藏文本 */}
-      <span className="song-card__rank" aria-hidden="true">
+      {/* 名次：低透明度的衬线大数字，像榜单页边的水印；前三名单独镀金 */}
+      <span
+        className={`song-card__rank${place <= 3 ? ' song-card__rank--podium' : ''}`}
+        aria-hidden="true"
+      >
         {placeLabel}
       </span>
       <span className="song-card__sr">第 {place} 名</span>
