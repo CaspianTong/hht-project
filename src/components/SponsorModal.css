@@ -109,7 +109,7 @@
 .sponsor-modal__tabs {
   flex: 0 0 auto;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 5px;
   padding: 5px;
   border-radius: 999px;
@@ -118,12 +118,17 @@
 }
 .sponsor-modal__tab {
   min-width: 0;
-  padding: 9px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 6px;
   border-radius: 999px;
   font-size: 12.8px;
   font-weight: 700;
   letter-spacing: 0.01em;
-  white-space: nowrap;
+  line-height: 1.35;
+  white-space: normal; /* 三个 Tab 时窄屏允许自然折行，绝不横向溢出 */
+  text-align: center;
   color: var(--text-secondary);
   transition:
     color 200ms ease,
@@ -178,6 +183,20 @@
   text-align: center;
   color: var(--text-secondary);
 }
+/* 告示栏：柔和纸面 + 左侧高级蓝书签条，像一张贴在卡片里的通知 */
+.sponsor-modal__notice {
+  width: 100%;
+  padding: 16px 16px 16px 18px;
+  border-radius: 18px;
+  background: var(--bg-wash);
+  border: 1px solid var(--border-subtle);
+  box-shadow: inset 3px 0 0 var(--accent-secondary);
+}
+.sponsor-modal__notice .sponsor-modal__lead {
+  font-size: 13.5px;
+  line-height: 1.9;
+}
+
 /* 微信二维码上方的长留言：左对齐更好读，段间留一点呼吸 */
 .sponsor-modal__lead--notice {
   text-align: left;

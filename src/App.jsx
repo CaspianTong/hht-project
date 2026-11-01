@@ -251,13 +251,15 @@ function App() {
   const [authorOpen, setAuthorOpen] = useState(false);
 
   /* 支持与反馈 / 投喂站长：页脚常驻入口、菜单、投票成功 Toast 都能唤起；
-     sponsorTab 决定默认落在哪个 Tab（feedback 交流 / sponsor 投喂） */
+     sponsorTab 决定默认落在哪个 Tab（notice 告示栏 / feedback 交流 / sponsor 投喂） */
   const [sponsorOpen, setSponsorOpen] = useState(false);
-  const [sponsorTab, setSponsorTab] = useState('feedback');
+  const [sponsorTab, setSponsorTab] = useState('notice');
 
-  /* 打开弹窗：不传参数默认「交流与反馈」，传 'sponsor' 直达投喂页 */
-  const openSponsor = useCallback((tab = 'feedback') => {
-    setSponsorTab(tab === 'sponsor' ? 'sponsor' : 'feedback');
+  /* 打开弹窗：默认「告示栏」，传 'feedback' / 'sponsor' 可直达对应页 */
+  const openSponsor = useCallback((tab = 'notice') => {
+    setSponsorTab(
+      tab === 'sponsor' ? 'sponsor' : tab === 'feedback' ? 'feedback' : 'notice',
+    );
     setSponsorOpen(true);
   }, []);
 
@@ -269,11 +271,11 @@ function App() {
   const timerRef = useRef({});
 
   /* ---------------- 首屏加载界面 ---------------- */
-  /* 加载结束：先卸载 loading，同时把「☕ 支持与反馈」弹窗展示出来（默认交流与反馈页）；
+  /* 加载结束：先卸载 loading，同时把「☕ 支持与反馈」弹窗展示出来（默认告示栏页）；
      关掉之后仍可从页脚 / 菜单 / 投票成功 Toast 再次打开 */
   const finishBoot = useCallback(() => {
     setBooting(false);
-    openSponsor('feedback');
+    openSponsor('notice');
   }, [openSponsor]);
 
   /* ---------------- Toast ---------------- */

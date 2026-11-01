@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import './SponsorModal.css';
 
-/* 两个 Tab 的静态定义：数组顺序就是键盘 ← / → 的切换顺序 */
+/* 三个 Tab 的静态定义：数组顺序就是键盘 ← / → 的切换顺序 */
 const TABS = [
+  { id: 'notice', label: '📢 告示栏' },
   { id: 'feedback', label: '💬 交流与反馈' },
   { id: 'sponsor', label: '☕ 投喂站长' },
 ];
@@ -16,7 +17,7 @@ const CLOSE_ANIM_MS = 200;
  * 设计约定：
  *  · 遮罩：半透明墨色 + 4px 毛玻璃（等价 Tailwind 的 backdrop-blur-sm），
  *    进出场都有淡入淡出，关闭动画播完才卸载；
- *  · 两个 Tab：默认「交流与反馈」（微信二维码），另一页是「投喂站长」（赞赏码）；
+ *  · 三个 Tab：默认「告示栏」，另有「交流与反馈」（微信二维码）与「投喂站长」（赞赏码）；
  *  · 关闭方式：✕ / 底部「关闭」/ 点遮罩 / Esc 都走同一条带退场动画的关闭流程；
  *  · 无障碍：tablist + tab / tabpanel 语义、方向键 / Home / End 切换、焦点归还触发按钮。
  *
@@ -25,11 +26,11 @@ const CLOSE_ANIM_MS = 200;
  *
  * props:
  *  onClose()              关闭弹窗
- *  initialTab             'feedback'（默认）| 'sponsor' —— 从 Toast 进来时直达投喂页
+ *  initialTab             'notice'（默认）| 'feedback' | 'sponsor'
  */
-function SponsorModal({ onClose, initialTab = 'feedback' }) {
+function SponsorModal({ onClose, initialTab = 'notice' }) {
   const [tab, setTab] = useState(() =>
-    TABS.some((item) => item.id === initialTab) ? initialTab : 'feedback',
+    TABS.some((item) => item.id === initialTab) ? initialTab : 'notice',
   );
   const [closing, setClosing] = useState(false);
   const closingRef = useRef(false);
@@ -156,7 +157,14 @@ function SponsorModal({ onClose, initialTab = 'feedback' }) {
           aria-labelledby={`sponsor-tab-${tab}`}
           tabIndex={0}
         >
-          {tab === 'feedback' ? (
+          {tab === 'notice' ? (
+            <div className="sponsor-modal__notice">
+              <p className="sponsor-modal__lead sponsor-modal__lead--notice">
+                同学们，作者要去背书了。工作日暂时无法通过微信申请和发放兑换码；本周以及考完试的那
+                3 天半，我会将纸质码发到大家手中，谢谢 🙏
+              </p>
+            </div>
+          ) : tab === 'feedback' ? (
             <>
               <div className="sponsor-modal__lead sponsor-modal__lead--notice">
                 <p>
