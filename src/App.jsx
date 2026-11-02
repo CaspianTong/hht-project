@@ -20,18 +20,18 @@
  *  客户端实例见 src/lib/supabase.js（连接信息读 .env.local 的 VITE_SUPABASE_*）
  *
  * 【状态中心】
- *  songs          全部歌曲（来自 Supabase；票数变动由 Realtime 同步）
- *  songsLoading   首次拉取是否进行中（榜单显示「正在拉取」而不是空态）
+ *  songs           全部歌曲（来自 Supabase；票数变动由 Realtime 同步）
+ *  songsLoading    首次拉取是否进行中（榜单显示「正在拉取」而不是空态）
  *  songsRefreshing 手动同步是否进行中（只影响按钮 Loading 与榜单淡出，不重置票池）
- *  songsError     拉取失败的提示文案（榜单显示「重新加载」）
- *  extraVotes     可用投票张数（唯一来源 = 兑换码核销，按卡券面值增加；写入 localStorage 持久化）
- *  toasts         全局轻提示
+ *  songsError      拉取失败的提示文案（榜单显示「重新加载」）
+ *  extraVotes      可用投票张数（唯一来源 = 兑换码核销，按卡券面值增加；写入 localStorage 持久化）
+ *  toasts          全局轻提示
  *
  * 【票池】没有免费票：votesLeft = extraVotes —— 只能靠兑换码换票，
- *        兑多少就有多少，投一张减一张，见底就把投票拦下来引导去兑换。
- *        → 交给「提交我的音乐」卡片右上角的剩余票数仪表显示
- *        （票池只是本地票闸：真正加票的是数据库存储过程，
- *          而且只在「服务端确认投票成功」之后才扣掉一张）
+ *         兑多少就有多少，投一张减一张，见底就把投票拦下来引导去兑换。
+ *         → 交给「提交我的音乐」卡片右上角的剩余票数仪表显示
+ *         （票池只是本地票闸：真正加票的是数据库存储过程，
+ *           而且只在「服务端确认投票成功」之后才扣掉一张）
  *
  * 【兑换核销】8 位兑换码已接 Supabase 的 redemption_codes 表：
  *  大小写不敏感：ilike 查 code → 用实际存储的 code 置 used = true + used_at → 再加票
@@ -566,11 +566,11 @@ function App() {
     [handleVote, pushToast],
   );
 
-  /** 兑换投票次数：8 位兑换码 → 按卡券面值加票，一码一次
+  /** 兑换投票次数：8 位兑换码 → 恢复 1 码换 5 票，一码一次
    *  严格执行「先查验 → 再核销 → 最后加票」：
    *    ① SELECT code / votes / used，确认卡券存在且未使用
    *    ② UPDATE used = true（带 used = false 原子条件），并确认受影响行数 === 1
-   *    ③ 只有数据库真的核销成功，才按 codeData.votes 给本地加票
+   *    ③ 数据库真正核销成功后，固定增加 5 票（如果数据库设定了更高面值则按更高面值加）
    *  返回 { ok, reason, message?, added? } 交给 <RedeemPanel />：
    *    reason = 'invalid' 无效 / 'used' 已使用 / 'error' 数据库或网络异常 */
   const handleRedeem = useCallback(
@@ -598,7 +598,7 @@ function App() {
       }
 
       try {
-        /* 第一步：先查验卡券是否存在、面值多少、是否已经用过 */
+        /* 第一步：先查验卡券是否存在、是否已经用过 */
         const { data: codeData, error: fetchError } = await supabase
           .from('redemption_codes')
           .select('code, votes, used')
@@ -653,12 +653,12 @@ function App() {
           return { ok: false, reason: 'used', message };
         }
 
-        /* 第三步：数据库确认核销成功后才加票，按卡券面值（votes）发放 */
+        /* 第三步：数据库确认核销成功后才加票，正式恢复为 1 码换 5 票 */
         const parsedVotes = Number(codeData.votes);
         const addVotes =
-          Number.isFinite(parsedVotes) && parsedVotes > 0
+          Number.isFinite(parsedVotes) && parsedVotes > 1
             ? Math.trunc(parsedVotes)
-            : 1;
+            : 5;
 
         setExtraVotes((prev) => prev + addVotes);
         window.alert(`兑换成功！获得 ${addVotes} 票`);
