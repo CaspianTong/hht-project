@@ -2253,7 +2253,12 @@
     scroll-behavior: auto;
   }
 }
-
+/* 歌单展示模式：隐藏卡片票数、投票按钮及排序选择框 */
+.playlist-only-mode [class*="vote"],
+.playlist-only-mode [class*="Vote"],
+.playlist-only-mode select {
+  display: none !important;
+}
 
 
 
