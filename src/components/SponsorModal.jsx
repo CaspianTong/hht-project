@@ -160,8 +160,7 @@ function SponsorModal({ onClose, initialTab = 'notice' }) {
           {tab === 'notice' ? (
             <div className="sponsor-modal__notice">
               <p className="sponsor-modal__lead sponsor-modal__lead--notice">
-                同学们，作者要去背书了。工作日暂时无法通过微信申请和发放兑换码；本周以及考完试的那
-                3 天半，我会将纸质码发到大家手中，谢谢 🙏
+                同学们，以下是我已经下载的歌，如果在榜单内但是没有的话就是版权问题无法下载。
               </p>
             </div>
           ) : tab === 'feedback' ? (
